@@ -1,5 +1,6 @@
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 import {
   StoryBible,
   StoryChapter,
@@ -114,7 +115,7 @@ export async function POST(req: Request) {
         if (result.characters) {
           result.characters = result.characters.map((c: any, i: number) => ({
             ...c,
-            id: c.id && c.id.length > 2 ? c.id : `gen_char_${Date.now()}_${i}`,
+            id: randomUUID(),
             role: ["Protagonist", "Antagonist", "Supporting"].includes(c.role)
               ? c.role
               : "Supporting",
@@ -126,7 +127,7 @@ export async function POST(req: Request) {
         if (result.outline) {
           result.outline = result.outline.map((c: any, i: number) => ({
             ...c,
-            id: c.id && c.id.length > 2 ? c.id : `gen_ch_${Date.now()}_${i}`,
+            id: randomUUID(),
             isGenerated: false,
           }));
         } else {
@@ -221,7 +222,7 @@ export async function POST(req: Request) {
         const chars = parseJSON(response.text || "[]");
         const finalChars = chars.map((c: any) => ({
           ...c,
-          id: c.id || Date.now().toString() + Math.random(),
+          id: randomUUID(),
         }));
         return NextResponse.json(finalChars);
       }

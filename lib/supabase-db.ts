@@ -192,43 +192,75 @@ export const updateBook = async (
     return false;
   }
 
-  // Update characters
-  if (bible.characters.length > 0) {
-    for (const char of bible.characters) {
-      const { error: charError } = await supabase.from("characters").upsert(
-        {
-          id: char.id,
-          book_id: bookId,
-          name: char.name,
-          role: char.role,
-          description: char.description,
-          background: char.background,
-          motivation: char.motivation,
-          arc_or_conflict: char.arcOrConflict,
-        },
-        { onConflict: "id" }
-      );
+  // Update characters - delete removed ones first
+  const { data: currentChars } = await supabase
+    .from("characters")
+    .select("id")
+    .eq("book_id", bookId);
+  const currentCharIds = new Set(currentChars?.map((c) => c.id) || []);
+  const newCharIds = new Set(bible.characters.map((c) => c.id));
+  const charsToDelete = [...currentCharIds].filter((id) => !newCharIds.has(id));
 
-      if (charError) console.error("Error updating character:", charError);
-    }
+  if (charsToDelete.length > 0) {
+    const { error: deleteError } = await supabase
+      .from("characters")
+      .delete()
+      .in("id", charsToDelete);
+    if (deleteError) console.error("Error deleting characters:", deleteError);
   }
 
-  // Update outlines
-  if (bible.outline.length > 0) {
-    for (const outline of bible.outline) {
-      const { error: outlineError } = await supabase.from("outlines").upsert(
-        {
-          id: outline.id,
-          book_id: bookId,
-          title: outline.title,
-          summary: outline.summary,
-          is_generated: outline.isGenerated,
-        },
-        { onConflict: "id" }
-      );
+  // Upsert new/updated characters
+  for (const char of bible.characters) {
+    const { error: charError } = await supabase.from("characters").upsert(
+      {
+        id: char.id,
+        book_id: bookId,
+        name: char.name,
+        role: char.role,
+        description: char.description,
+        background: char.background,
+        motivation: char.motivation,
+        arc_or_conflict: char.arcOrConflict,
+      },
+      { onConflict: "id" }
+    );
 
-      if (outlineError) console.error("Error updating outline:", outlineError);
-    }
+    if (charError) console.error("Error updating character:", charError);
+  }
+
+  // Update outlines - delete removed ones first
+  const { data: currentOutlines } = await supabase
+    .from("outlines")
+    .select("id")
+    .eq("book_id", bookId);
+  const currentOutlineIds = new Set(currentOutlines?.map((o) => o.id) || []);
+  const newOutlineIds = new Set(bible.outline.map((o) => o.id));
+  const outlinesToDelete = [...currentOutlineIds].filter(
+    (id) => !newOutlineIds.has(id)
+  );
+
+  if (outlinesToDelete.length > 0) {
+    const { error: deleteError } = await supabase
+      .from("outlines")
+      .delete()
+      .in("id", outlinesToDelete);
+    if (deleteError) console.error("Error deleting outlines:", deleteError);
+  }
+
+  // Upsert new/updated outlines
+  for (const outline of bible.outline) {
+    const { error: outlineError } = await supabase.from("outlines").upsert(
+      {
+        id: outline.id,
+        book_id: bookId,
+        title: outline.title,
+        summary: outline.summary,
+        is_generated: outline.isGenerated,
+      },
+      { onConflict: "id" }
+    );
+
+    if (outlineError) console.error("Error updating outline:", outlineError);
   }
 
   // Update instructions

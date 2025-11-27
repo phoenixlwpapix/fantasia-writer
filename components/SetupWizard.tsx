@@ -59,6 +59,7 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onFinish }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [showClearModal, setShowClearModal] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
 
   // Credits Modal State
   const [isCreditModalOpen, setIsCreditModalOpen] = useState(false);
@@ -113,7 +114,7 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onFinish }) => {
         const rawOutline = await generateFullOutline(bible);
         const formattedOutline: ChapterOutline[] = rawOutline.map(
           (c: any, i: number) => ({
-            id: `ch-${Date.now()}-${i}`,
+            id: crypto.randomUUID(),
             title: c.title,
             summary: c.summary,
             isGenerated: false,
@@ -139,43 +140,63 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onFinish }) => {
     }
   };
 
-  const performClear = () => {
-    switch (currentStep) {
-      case "CORE":
-        updateCore({
-          title: "",
-          theme: "",
-          logline: "",
-          genre: "",
-          settingTime: "",
-          settingPlace: "",
-          settingWorld: "",
-          styleTone: "",
-        });
-        break;
-      case "CHARACTERS":
-        setBible((prev) => ({ ...prev, characters: [] }));
-        break;
-      case "OUTLINE":
-        setBible((prev) => ({ ...prev, outline: [] }));
-        break;
-      case "INSTRUCTIONS":
-        updateInstruction({
-          pov: "",
-          pacing: "",
-          dialogueStyle: "",
-          sensoryDetails: "",
-          keyElements: "",
-          avoid: "",
-        });
-        break;
+  const performClear = async () => {
+    setIsClearing(true);
+    try {
+      let clearedBible = { ...bible };
+
+      switch (currentStep) {
+        case "CORE":
+          const clearedCore = {
+            title: "",
+            theme: "",
+            logline: "",
+            genre: "",
+            settingTime: "",
+            settingPlace: "",
+            settingWorld: "",
+            styleTone: "",
+            targetChapterCount: bible.core.targetChapterCount,
+            targetChapterWordCount: bible.core.targetChapterWordCount,
+          };
+          updateCore(clearedCore);
+          clearedBible.core = clearedCore;
+          break;
+        case "CHARACTERS":
+          clearedBible = { ...bible, characters: [] };
+          setBible(clearedBible);
+          break;
+        case "OUTLINE":
+          clearedBible = { ...bible, outline: [] };
+          setBible(clearedBible);
+          break;
+        case "INSTRUCTIONS":
+          const clearedInstructions = {
+            pov: "",
+            pacing: "",
+            dialogueStyle: "",
+            sensoryDetails: "",
+            keyElements: "",
+            avoid: "",
+          };
+          updateInstruction(clearedInstructions);
+          clearedBible.instructions = clearedInstructions;
+          break;
+      }
+
+      // Update database if project exists
+      if (currentProjectId) {
+        await updateBook(currentProjectId, clearedBible);
+      }
+    } finally {
+      setIsClearing(false);
+      setShowClearModal(false);
     }
-    setShowClearModal(false);
   };
 
   const addCharacter = () => {
     const newChar: Character = {
-      id: Date.now().toString(),
+      id: crypto.randomUUID(),
       name: "",
       role: "Supporting",
       description: "",
@@ -556,7 +577,7 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onFinish }) => {
                       outline: [
                         ...prev.outline,
                         {
-                          id: Date.now().toString(),
+                          id: crypto.randomUUID(),
                           title: "新章节",
                           summary: "",
                           isGenerated: false,
@@ -749,6 +770,7 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onFinish }) => {
                 variant="secondary"
                 className="flex-1"
                 onClick={() => setShowClearModal(false)}
+                disabled={isClearing}
               >
                 取消
               </Button>
@@ -756,8 +778,9 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onFinish }) => {
                 variant="primary"
                 className="flex-1 bg-red-600 hover:bg-red-700 border-red-600 text-white"
                 onClick={performClear}
+                disabled={isClearing}
               >
-                确认清空
+                {isClearing ? "正在删除..." : "确认清空"}
               </Button>
             </div>
           </div>
