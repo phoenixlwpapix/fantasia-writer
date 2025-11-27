@@ -69,12 +69,30 @@ fantasia-next/
 
 基于《失落的玉簪》小说格式，设计了完整的数据库 schema：
 
+- **profiles**：用户个人资料（email、全名、头像、简介等）
 - **books**：书籍基本信息
 - **characters**：角色设定
 - **outlines**：章节大纲
 - **instructions**：写作指令
 - **chapters**：章节内容
 - **chapter_memories**：章节记忆分析
+- **user_credits**：用户积分系统
+- **admin_users**：管理员用户表
+
+### 数据库迁移
+
+项目包含多个 SQL 迁移文件，按以下顺序执行：
+
+1. `supabase-schema.sql` - 基础表结构和 RLS 策略
+2. `create_profiles_table.sql` - 用户资料表和自动创建触发器
+3. `admin_users_migration.sql` - 管理员用户表
+4. `admin_view_users_migration.sql` - 管理员查看用户函数（注意：会先删除旧函数再创建）
+5. `add_admin_rls_policies.sql` - 管理员访问策略
+6. `user_credits_migration.sql` - 用户积分表
+
+在 Supabase 控制台的 SQL Editor 中依次执行这些文件。
+
+**注意**：如果执行 `admin_view_users_migration.sql` 时遇到函数返回类型错误，请确保按照顺序执行，或单独执行该文件。
 
 ### 自动保存机制
 

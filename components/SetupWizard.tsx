@@ -1,9 +1,17 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useStory } from "./StoryProvider";
-import { SetupStep, Character, ChapterOutline } from "../lib/types";
+import {
+  SetupStep,
+  Character,
+  ChapterOutline,
+  GenerationType,
+  GENERATION_COSTS,
+} from "../lib/types";
 import { Button, Input, TextArea, Card } from "./ui'/UIComponents";
 import { createClient } from "../lib/supabase-client";
+import { CreditConfirmationModal } from "./CreditConfirmationModal";
+import { deductUserCredits } from "../lib/supabase-db";
 import {
   generateStoryCore,
   generateCharacterList,
@@ -37,12 +45,23 @@ interface SetupWizardProps {
 }
 
 export const SetupWizard: React.FC<SetupWizardProps> = ({ onFinish }) => {
-  const { bible, setBible, updateCore, updateInstruction } = useStory();
+  const {
+    bible,
+    setBible,
+    updateCore,
+    updateInstruction,
+    userCredits,
+    setUserCredits,
+  } = useStory();
 
   const [currentStep, setCurrentStep] = useState<SetupStep>("CORE");
   const [isGenerating, setIsGenerating] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [showClearModal, setShowClearModal] = useState(false);
+
+  // Credits Modal State
+  const [isCreditModalOpen, setIsCreditModalOpen] = useState(false);
+  const [pendingStep, setPendingStep] = useState<SetupStep | null>(null);
 
   // Check if core requirements are met (Title, Theme, Genre)
   const isCoreReady = !!(
@@ -51,19 +70,45 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onFinish }) => {
     bible.core.genre?.trim()
   );
 
-  const handleAutoGenerate = async () => {
+  const handleAutoGenerate = () => {
+    const cost = GENERATION_COSTS[GenerationType.SINGLE_PAGE_SETUP];
+    if (userCredits < cost) {
+      alert(`积分不足！需要 ${cost} 积分，当前余额 ${userCredits} 积分`);
+      return;
+    }
+
+    setPendingStep(currentStep);
+    setIsCreditModalOpen(true);
+  };
+
+  const confirmGeneration = async () => {
+    if (!pendingStep) return;
+
+    const cost = GENERATION_COSTS[GenerationType.SINGLE_PAGE_SETUP];
+    const success = await deductUserCredits(cost);
+    if (success) {
+      setUserCredits((prev) => prev - cost);
+      await executeGeneration(pendingStep);
+    } else {
+      alert("扣除积分失败，请重试");
+    }
+
+    setPendingStep(null);
+  };
+
+  const executeGeneration = async (step: SetupStep) => {
     setIsGenerating(true);
     try {
-      if (currentStep === "CORE") {
+      if (step === "CORE") {
         const newCore = await generateStoryCore(bible.core);
         updateCore(newCore);
-      } else if (currentStep === "CHARACTERS") {
+      } else if (step === "CHARACTERS") {
         const newChars = await generateCharacterList(
           bible.core,
           bible.characters
         );
         setBible((prev) => ({ ...prev, characters: newChars }));
-      } else if (currentStep === "OUTLINE") {
+      } else if (step === "OUTLINE") {
         const rawOutline = await generateFullOutline(bible);
         const formattedOutline: ChapterOutline[] = rawOutline.map(
           (c: any, i: number) => ({
@@ -74,7 +119,7 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onFinish }) => {
           })
         );
         setBible((prev) => ({ ...prev, outline: formattedOutline }));
-      } else if (currentStep === "INSTRUCTIONS") {
+      } else if (step === "INSTRUCTIONS") {
         const newInstructions = await generateWritingInstructions(bible);
         updateInstruction(newInstructions);
       }
@@ -631,37 +676,6 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onFinish }) => {
         </Button>
 
         <div className="flex gap-3">
-          <Button
-            variant="outline"
-            onClick={async () => {
-              // Save current book settings to database
-              const { createBook, updateBook } = await import(
-                "../lib/supabase-db"
-              );
-              const supabase = createClient();
-              const {
-                data: { user },
-              } = await supabase.auth.getUser();
-              if (!user) return;
-
-              // Check if book already exists (has ID)
-              const existingBookId = bible.id;
-              if (existingBookId) {
-                await updateBook(existingBookId, bible);
-              } else {
-                const bookId = await createBook(bible);
-                if (bookId) {
-                  // Update local state with the new book ID
-                  setBible((prev) => ({ ...prev, id: bookId }));
-                }
-              }
-              alert("书籍设定已保存到数据库！");
-            }}
-            disabled={!bible.core.title?.trim()}
-          >
-            保存到数据库
-          </Button>
-
           {currentStep === "INSTRUCTIONS" ? (
             <Button size="lg" variant="accent" onClick={handleEnterWriter}>
               进入创意工作室
@@ -740,6 +754,17 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onFinish }) => {
           </div>
         </div>
       )}
+
+      {/* Credit Confirmation Modal */}
+      <CreditConfirmationModal
+        isOpen={isCreditModalOpen}
+        onClose={() => setIsCreditModalOpen(false)}
+        onConfirm={confirmGeneration}
+        cost={GENERATION_COSTS[GenerationType.SINGLE_PAGE_SETUP]}
+        balance={userCredits}
+        title="AI 智能生成"
+        description="AI 将根据当前信息智能生成设定内容，需要消耗积分。"
+      />
     </div>
   );
 };

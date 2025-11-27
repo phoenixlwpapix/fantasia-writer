@@ -8,7 +8,7 @@ import {
   WritingInstructions,
 } from "@/lib/types";
 
-const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
+const getAI = () => new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 // Helper to parse JSON safely
 const parseJSON = (text: string) => {

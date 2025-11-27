@@ -34,7 +34,11 @@ export default function LoginPage() {
     });
 
     if (error) {
-      setError(error.message);
+      setError(
+        error.message === "Invalid login credentials"
+          ? "无效的登录凭据"
+          : error.message
+      );
     } else {
       router.push("/projects");
     }
@@ -44,7 +48,7 @@ export default function LoginPage() {
 
   const handleRegister = async () => {
     if (!email || !password) {
-      setError("Please enter email and password");
+      setError("请输入电子邮箱和密码");
       return;
     }
     setIsRegisterLoading(true);
@@ -59,9 +63,7 @@ export default function LoginPage() {
     if (error) {
       setError(error.message);
     } else {
-      setError(
-        "Registration successful! Please check your email to confirm your account."
-      );
+      setError("注册成功！请检查您的电子邮件以确认您的账户。");
     }
 
     setIsRegisterLoading(false);
@@ -221,7 +223,11 @@ export default function LoginPage() {
                 key={i}
                 className="text-2xl md:text-3xl xl:text-4xl font-serif italic text-transparent bg-clip-text bg-gradient-to-b from-gray-300 via-gray-100 to-gray-400 text-center whitespace-nowrap transform transition-all hover:scale-110 hover:text-white/80 duration-500"
                 style={{
-                  opacity: Math.max(0.2, Math.random() * 0.8),
+                  // Use deterministic values to avoid hydration mismatch
+                  opacity: Math.max(
+                    0.2,
+                    Math.abs(Math.sin((i + 1) * 7919)) * 0.8
+                  ),
                   transform: `translateX(${Math.sin(i) * 40}px)`,
                 }}
               >
@@ -235,7 +241,7 @@ export default function LoginPage() {
         <div className="relative z-10 max-w-md text-center px-8 backdrop-blur-sm py-12 rounded-2xl border border-white/5 bg-white/5 shadow-2xl">
           <Feather className="w-10 h-10 text-white/80 mx-auto mb-6" />
           <blockquote className="font-serif text-2xl text-white/90 leading-relaxed italic mb-6">
-            "写作不仅仅是记录。它是用文字在虚空中构建大厦。"
+            &ldquo;写作不仅仅是记录。它是用文字在虚空中构建大厦。&rdquo;
           </blockquote>
           <cite className="text-xs font-bold tracking-[0.2em] text-gray-500 uppercase not-italic block">
             AI 辅助创作核心

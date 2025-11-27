@@ -82,6 +82,16 @@ CREATE TABLE chapter_memories (
   UNIQUE(chapter_id) -- One memory per chapter
 );
 
+-- User credits table
+CREATE TABLE user_credits (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  credits INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(user_id) -- One credit record per user
+);
+
 -- Create indexes for better performance
 CREATE INDEX idx_books_user_id ON books(user_id);
 CREATE INDEX idx_books_updated_at ON books(updated_at DESC);
@@ -91,6 +101,7 @@ CREATE INDEX idx_instructions_book_id ON instructions(book_id);
 CREATE INDEX idx_chapters_book_id ON chapters(book_id);
 CREATE INDEX idx_chapters_outline_id ON chapters(outline_id);
 CREATE INDEX idx_chapter_memories_chapter_id ON chapter_memories(chapter_id);
+CREATE INDEX idx_user_credits_user_id ON user_credits(user_id);
 
 -- Create updated_at trigger function
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -108,6 +119,9 @@ CREATE TRIGGER update_books_updated_at BEFORE UPDATE ON books
 CREATE TRIGGER update_chapters_updated_at BEFORE UPDATE ON chapters
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+CREATE TRIGGER update_user_credits_updated_at BEFORE UPDATE ON user_credits
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
 -- Enable Row Level Security (RLS)
 ALTER TABLE books ENABLE ROW LEVEL SECURITY;
 ALTER TABLE characters ENABLE ROW LEVEL SECURITY;
@@ -115,6 +129,7 @@ ALTER TABLE outlines ENABLE ROW LEVEL SECURITY;
 ALTER TABLE instructions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE chapters ENABLE ROW LEVEL SECURITY;
 ALTER TABLE chapter_memories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_credits ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies for books
 CREATE POLICY "Users can view their own books" ON books
@@ -320,3 +335,16 @@ CREATE POLICY "Users can delete chapter memories of their books" ON chapter_memo
             AND b.user_id = auth.uid()
         )
     );
+
+-- RLS Policies for user_credits
+CREATE POLICY "Users can view their own credits" ON user_credits
+    FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own credits" ON user_credits
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own credits" ON user_credits
+    FOR UPDATE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own credits" ON user_credits
+    FOR DELETE USING (auth.uid() = user_id);

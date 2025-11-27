@@ -7,7 +7,12 @@ import {
   analyzeChapterContext,
 } from "../services/gemini";
 import { Button, Badge, TextArea } from "./ui'/UIComponents";
-import { saveChapter } from "../lib/supabase-db";
+import {
+  saveChapter,
+  getUserCredits,
+  deductUserCredits,
+} from "../lib/supabase-db";
+import { CreditConfirmationModal } from "./CreditConfirmationModal";
 import {
   ArrowLeft,
   ArrowRight,
@@ -25,7 +30,7 @@ import {
   X,
   RotateCcw,
 } from "lucide-react";
-import { StoryChapter } from "../lib/types";
+import { StoryChapter, GenerationType, GENERATION_COSTS } from "../lib/types";
 import { GenerateContentResponse } from "@google/genai";
 
 interface WritingInterfaceProps {
@@ -35,7 +40,8 @@ interface WritingInterfaceProps {
 export const WritingInterface: React.FC<WritingInterfaceProps> = ({
   onEditSetup,
 }) => {
-  const { bible, chapters, setChapters } = useStory();
+  const { bible, chapters, setChapters, userCredits, setUserCredits } =
+    useStory();
   const [generatingId, setGeneratingId] = useState<string | null>(null);
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(
@@ -47,6 +53,14 @@ export const WritingInterface: React.FC<WritingInterfaceProps> = ({
   // Rewrite Modal State
   const [isRewriteModalOpen, setIsRewriteModalOpen] = useState(false);
   const [rewriteInstructions, setRewriteInstructions] = useState("");
+
+  // Credits Modal State
+  const [isCreditModalOpen, setIsCreditModalOpen] = useState(false);
+  const [pendingGenerationType, setPendingGenerationType] =
+    useState<GenerationType | null>(null);
+  const [pendingCustomInstructions, setPendingCustomInstructions] = useState<
+    string | undefined
+  >(undefined);
 
   // Ref to track the current selected chapter ID for async operations
   const selectedChapterIdRef = useRef<string | null>(null);
@@ -63,7 +77,7 @@ export const WritingInterface: React.FC<WritingInterfaceProps> = ({
     selectedChapterIdRef.current = selectedChapterId;
   }, [selectedChapterId]);
 
-  const handleGenerate = async (customInstructions?: string) => {
+  const executeGeneration = async (customInstructions?: string) => {
     if (!selectedChapterId) return;
 
     const chapterOutline = bible.outline.find(
@@ -95,7 +109,7 @@ export const WritingInterface: React.FC<WritingInterfaceProps> = ({
       setChapters((prev) => {
         const exists = prev.find((c) => c.outlineId === currentGeneratingId);
         const initialChapter: StoryChapter = {
-          id: exists ? exists.id : Date.now().toString(),
+          id: exists ? exists.id : crypto.randomUUID(),
           title: chapterOutline.title,
           content: "", // Start empty for new stream
           wordCount: 0,
@@ -166,14 +180,23 @@ export const WritingInterface: React.FC<WritingInterfaceProps> = ({
       );
 
       // Auto-save chapter and memory to database
-      const updatedChapters = chapters.map((c) =>
-        c.outlineId === currentGeneratingId ? { ...c, metadata } : c
-      );
-      const finalChapter = updatedChapters.find(
+      const existingChapter = chapters.find(
         (c) => c.outlineId === currentGeneratingId
       );
+      const finalChapter = existingChapter
+        ? { ...existingChapter, metadata }
+        : null;
+      console.log("Final chapter to save:", finalChapter);
       if (finalChapter && bible.id) {
-        await saveChapter(finalChapter, bible.id);
+        const savedId = await saveChapter(finalChapter, bible.id);
+        if (savedId) {
+          // Update the chapter id in state to match database
+          setChapters((prev) =>
+            prev.map((c) =>
+              c.outlineId === currentGeneratingId ? { ...c, id: savedId } : c
+            )
+          );
+        }
       }
     } catch (e) {
       console.error("Failed to generate", e);
@@ -185,14 +208,49 @@ export const WritingInterface: React.FC<WritingInterfaceProps> = ({
 
   const confirmRewrite = () => {
     setIsRewriteModalOpen(false);
-    handleGenerate(rewriteInstructions);
+    handleGenerate(GenerationType.CHAPTER_NORMAL, rewriteInstructions);
     setRewriteInstructions("");
+  };
+
+  const handleGenerate = (
+    generationType: GenerationType,
+    customInstructions?: string
+  ) => {
+    const cost = GENERATION_COSTS[generationType];
+    if (userCredits < cost) {
+      // Handle insufficient credits - could show an error message
+      alert(`积分不足！需要 ${cost} 积分，当前余额 ${userCredits} 积分`);
+      return;
+    }
+
+    setPendingGenerationType(generationType);
+    setPendingCustomInstructions(customInstructions);
+    setIsCreditModalOpen(true);
+  };
+
+  const confirmGeneration = async () => {
+    if (!pendingGenerationType) return;
+
+    const cost = GENERATION_COSTS[pendingGenerationType];
+    const success = await deductUserCredits(cost);
+    if (success) {
+      setUserCredits((prev) => prev - cost);
+      await executeGeneration(pendingCustomInstructions);
+    } else {
+      alert("扣除积分失败，请重试");
+    }
+
+    setPendingGenerationType(null);
+    setPendingCustomInstructions(undefined);
   };
 
   const currentChapter = chapters.find(
     (c) => c.outlineId === selectedChapterId
   );
   const currentOutline = bible.outline.find((c) => c.id === selectedChapterId);
+
+  // Debug logging for metadata
+  console.log("Current chapter metadata:", currentChapter?.metadata);
 
   // Navigation Logic
   const currentIndex = bible.outline.findIndex(
@@ -491,7 +549,7 @@ export const WritingInterface: React.FC<WritingInterfaceProps> = ({
                   if (currentChapter) {
                     setIsRewriteModalOpen(true);
                   } else {
-                    handleGenerate();
+                    handleGenerate(GenerationType.CHAPTER_NORMAL);
                   }
                 }}
                 isLoading={generatingId === selectedChapterId}
@@ -798,6 +856,27 @@ export const WritingInterface: React.FC<WritingInterfaceProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Credit Confirmation Modal */}
+      {pendingGenerationType && (
+        <CreditConfirmationModal
+          isOpen={isCreditModalOpen}
+          onClose={() => setIsCreditModalOpen(false)}
+          onConfirm={confirmGeneration}
+          cost={GENERATION_COSTS[pendingGenerationType]}
+          balance={userCredits}
+          title={
+            pendingGenerationType === GenerationType.CHAPTER_NORMAL
+              ? "生成章节正文"
+              : "重写章节"
+          }
+          description={
+            pendingGenerationType === GenerationType.CHAPTER_NORMAL
+              ? "AI 将根据大纲生成章节内容，需要消耗积分。"
+              : "AI 将根据您的修改意见重写章节内容，需要消耗积分。"
+          }
+        />
       )}
     </div>
   );

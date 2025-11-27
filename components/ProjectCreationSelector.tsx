@@ -2,6 +2,10 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { Button } from "./ui'/UIComponents";
 import { generateFullStoryBible } from "../services/gemini";
+import { CreditConfirmationModal } from "./CreditConfirmationModal";
+import { deductUserCredits } from "../lib/supabase-db";
+import { GenerationType, GENERATION_COSTS } from "../lib/types";
+import { useStory } from "./StoryProvider";
 import {
   Loader2,
   Sparkles,
@@ -19,19 +23,63 @@ interface ProjectCreationSelectorProps {
 export const ProjectCreationSelector: React.FC<
   ProjectCreationSelectorProps
 > = ({ onManualStart, onAIGenerate }) => {
+  const { userCredits, setUserCredits } = useStory();
   const [quickIdea, setQuickIdea] = useState("");
   const [quickChapterCount, setQuickChapterCount] = useState<number>(8);
   const [quickWordCount, setQuickWordCount] = useState<number>(1500);
   const [isFullGenerating, setIsFullGenerating] = useState(false);
 
-  const handleFullGenerate = async () => {
+  // Credits Modal State
+  const [isCreditModalOpen, setIsCreditModalOpen] = useState(false);
+  const [pendingGenerationData, setPendingGenerationData] = useState<{
+    idea: string;
+    chapterCount: number;
+    wordCount: number;
+  } | null>(null);
+
+  const handleFullGenerate = () => {
     if (!quickIdea.trim()) return;
+
+    const cost = GENERATION_COSTS[GenerationType.COMPLETE_SETUP];
+    if (userCredits < cost) {
+      alert(`积分不足！需要 ${cost} 积分，当前余额 ${userCredits} 积分`);
+      return;
+    }
+
+    setPendingGenerationData({
+      idea: quickIdea,
+      chapterCount: quickChapterCount,
+      wordCount: quickWordCount,
+    });
+    setIsCreditModalOpen(true);
+  };
+
+  const confirmGeneration = async () => {
+    if (!pendingGenerationData) return;
+
+    const cost = GENERATION_COSTS[GenerationType.COMPLETE_SETUP];
+    const success = await deductUserCredits(cost);
+    if (success) {
+      setUserCredits((prev) => prev - cost);
+      await executeGeneration(pendingGenerationData);
+    } else {
+      alert("扣除积分失败，请重试");
+    }
+
+    setPendingGenerationData(null);
+  };
+
+  const executeGeneration = async (data: {
+    idea: string;
+    chapterCount: number;
+    wordCount: number;
+  }) => {
     setIsFullGenerating(true);
     try {
       const newBible = await generateFullStoryBible(
-        quickIdea,
-        quickChapterCount,
-        quickWordCount
+        data.idea,
+        data.chapterCount,
+        data.wordCount
       );
       onAIGenerate(newBible);
     } catch (e) {
@@ -176,6 +224,17 @@ export const ProjectCreationSelector: React.FC<
           </div>
         </div>
       </div>
+
+      {/* Credit Confirmation Modal */}
+      <CreditConfirmationModal
+        isOpen={isCreditModalOpen}
+        onClose={() => setIsCreditModalOpen(false)}
+        onConfirm={confirmGeneration}
+        cost={GENERATION_COSTS[GenerationType.COMPLETE_SETUP]}
+        balance={userCredits}
+        title="完整设定生成"
+        description="AI 将根据您的想法生成完整的故事设定，包括核心设定、角色和大纲，需要消耗积分。"
+      />
     </div>
   );
 };

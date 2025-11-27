@@ -19,6 +19,8 @@ import {
   saveChapter,
   loadChapters,
   updateBookSpineColor,
+  initializeUserCredits,
+  getUserCredits,
 } from "../lib/supabase-db";
 import { createClient } from "../lib/supabase-client";
 
@@ -384,6 +386,10 @@ interface StoryContextType {
   chapters: StoryChapter[];
   setChapters: React.Dispatch<React.SetStateAction<StoryChapter[]>>;
 
+  // User Credits
+  userCredits: number;
+  setUserCredits: React.Dispatch<React.SetStateAction<number>>;
+
   // Project Management
   projects: ProjectMetadata[];
   loadingProjects: boolean;
@@ -416,6 +422,9 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({
   const [bible, setBible] = useState<StoryBible>(DEFAULT_BIBLE);
   const [chapters, setChapters] = useState<StoryChapter[]>([]);
 
+  // User Credits State
+  const [userCredits, setUserCredits] = useState<number>(0);
+
   // Load user projects from Supabase on mount and auth changes
   useEffect(() => {
     const loadProjects = async () => {
@@ -429,8 +438,18 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({
         if (user) {
           const userProjects = await loadUserBooks();
           setProjects(userProjects);
+
+          // Initialize user credits if not exists
+          await initializeUserCredits();
+
+          // Load user credits
+          const credits = await getUserCredits();
+          if (credits) {
+            setUserCredits(credits.credits);
+          }
         } else {
           setProjects([]);
+          setUserCredits(0);
         }
       } finally {
         setLoadingProjects(false);
@@ -438,6 +457,20 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({
     };
 
     loadProjects();
+
+    // Listen for auth state changes to reload data when user logs in/out
+    const supabase = createClient();
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === "SIGNED_IN" || event === "SIGNED_OUT") {
+        loadProjects();
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   // Auto-save current project to Supabase
@@ -448,9 +481,13 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({
       // Save book data
       await updateBook(currentProjectId, bible);
 
-      // Save chapters
-      for (const chapter of chapters) {
-        await saveChapter(chapter, currentProjectId);
+      // Save only completed chapters (those with metadata, indicating analysis is done)
+      const completedChapters = chapters.filter((chapter) => chapter.metadata);
+      for (const chapter of completedChapters) {
+        const savedId = await saveChapter(chapter, currentProjectId);
+        if (!savedId) {
+          console.error("Failed to save chapter:", chapter.title);
+        }
       }
 
       // Refresh projects list to update metadata
@@ -545,6 +582,8 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({
         updateInstruction,
         chapters,
         setChapters,
+        userCredits,
+        setUserCredits,
         projects,
         loadingProjects,
         loadingProject,

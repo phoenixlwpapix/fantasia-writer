@@ -1,5 +1,11 @@
 import { createClient } from "./supabase-client";
-import { StoryBible, StoryChapter, ProjectMetadata } from "./types";
+import {
+  StoryBible,
+  StoryChapter,
+  ProjectMetadata,
+  UserCredits,
+  NEW_USER_CREDITS,
+} from "./types";
 
 const supabase = createClient();
 
@@ -186,41 +192,43 @@ export const updateBook = async (
     return false;
   }
 
-  // Update characters - delete existing and insert new
-  await supabase.from("characters").delete().eq("book_id", bookId);
+  // Update characters
   if (bible.characters.length > 0) {
-    const charactersData = bible.characters.map((char) => ({
-      book_id: bookId,
-      name: char.name,
-      role: char.role,
-      description: char.description,
-      background: char.background,
-      motivation: char.motivation,
-      arc_or_conflict: char.arcOrConflict,
-    }));
+    for (const char of bible.characters) {
+      const { error: charError } = await supabase.from("characters").upsert(
+        {
+          id: char.id,
+          book_id: bookId,
+          name: char.name,
+          role: char.role,
+          description: char.description,
+          background: char.background,
+          motivation: char.motivation,
+          arc_or_conflict: char.arcOrConflict,
+        },
+        { onConflict: "id" }
+      );
 
-    const { error: charError } = await supabase
-      .from("characters")
-      .insert(charactersData);
-
-    if (charError) console.error("Error updating characters:", charError);
+      if (charError) console.error("Error updating character:", charError);
+    }
   }
 
-  // Update outlines - delete existing and insert new
-  await supabase.from("outlines").delete().eq("book_id", bookId);
+  // Update outlines
   if (bible.outline.length > 0) {
-    const outlinesData = bible.outline.map((outline) => ({
-      book_id: bookId,
-      title: outline.title,
-      summary: outline.summary,
-      is_generated: outline.isGenerated,
-    }));
+    for (const outline of bible.outline) {
+      const { error: outlineError } = await supabase.from("outlines").upsert(
+        {
+          id: outline.id,
+          book_id: bookId,
+          title: outline.title,
+          summary: outline.summary,
+          is_generated: outline.isGenerated,
+        },
+        { onConflict: "id" }
+      );
 
-    const { error: outlineError } = await supabase
-      .from("outlines")
-      .insert(outlinesData);
-
-    if (outlineError) console.error("Error updating outlines:", outlineError);
+      if (outlineError) console.error("Error updating outline:", outlineError);
+    }
   }
 
   // Update instructions
@@ -271,6 +279,17 @@ export const loadBook = async (bookId: string): Promise<StoryBible | null> => {
     .eq("book_id", bookId)
     .order("created_at");
 
+  if (outlines) {
+    // Sort outlines by chapter number extracted from title
+    outlines.sort((a, b) => {
+      const matchA = a.title.match(/第(\d+)章/);
+      const matchB = b.title.match(/第(\d+)章/);
+      const numA = matchA ? parseInt(matchA[1]) : 0;
+      const numB = matchB ? parseInt(matchB[1]) : 0;
+      return numA - numB;
+    });
+  }
+
   if (outlineError) console.error("Error loading outlines:", outlineError);
 
   // Load instructions
@@ -284,6 +303,7 @@ export const loadBook = async (bookId: string): Promise<StoryBible | null> => {
 
   // Build StoryBible
   const bible: StoryBible = {
+    id: book.id,
     core: {
       title: book.title,
       theme: book.theme || "",
@@ -413,8 +433,19 @@ export const deleteBook = async (bookId: string): Promise<boolean> => {
 export const saveChapter = async (
   chapter: StoryChapter,
   bookId: string
-): Promise<boolean> => {
+): Promise<string | null> => {
+  // First, find existing chapter by outline_id to ensure correct id
+  const { data: existingChapter } = await supabase
+    .from("chapters")
+    .select("id")
+    .eq("book_id", bookId)
+    .eq("outline_id", chapter.outlineId)
+    .single();
+
+  const chapterId = existingChapter?.id || chapter.id;
+
   const chapterData = {
+    id: chapterId,
     book_id: bookId,
     outline_id: chapter.outlineId,
     title: chapter.title,
@@ -422,19 +453,23 @@ export const saveChapter = async (
     word_count: chapter.wordCount,
   };
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("chapters")
-    .upsert(chapterData, { onConflict: "id" });
+    .upsert(chapterData, { onConflict: "id" })
+    .select("id")
+    .single();
 
   if (error) {
     console.error("Error saving chapter:", error);
-    return false;
+    return null;
   }
+
+  const savedChapterId = data.id;
 
   // Save chapter memory if exists
   if (chapter.metadata) {
     const memoryData = {
-      chapter_id: chapter.id,
+      chapter_id: savedChapterId,
       summary: chapter.metadata.summary,
       key_events: chapter.metadata.keyEvents,
       items: chapter.metadata.items,
@@ -442,25 +477,28 @@ export const saveChapter = async (
       characters: chapter.metadata.characters,
     };
 
+    console.log("Saving chapter memory:", memoryData);
+
     const { error: memoryError } = await supabase
       .from("chapter_memories")
       .upsert(memoryData, { onConflict: "chapter_id" });
 
-    if (memoryError) console.error("Error saving chapter memory:", memoryError);
+    if (memoryError) {
+      console.error("Error saving chapter memory:", memoryError);
+    } else {
+      console.log("Chapter memory saved successfully");
+    }
+  } else {
+    console.log("No metadata to save for chapter:", chapter.title);
   }
 
-  return true;
+  return savedChapterId;
 };
 
 export const loadChapters = async (bookId: string): Promise<StoryChapter[]> => {
   const { data: chapters, error } = await supabase
     .from("chapters")
-    .select(
-      `
-      *,
-      chapter_memories (*)
-    `
-    )
+    .select("*")
     .eq("book_id", bookId)
     .order("created_at");
 
@@ -469,20 +507,239 @@ export const loadChapters = async (bookId: string): Promise<StoryChapter[]> => {
     return [];
   }
 
-  return chapters.map((ch) => ({
-    id: ch.id,
-    title: ch.title,
-    content: ch.content || "",
-    wordCount: ch.word_count,
-    outlineId: ch.outline_id,
-    metadata: ch.chapter_memories?.[0]
+  // Load memories separately to avoid join issues
+  const chapterIds = chapters.map((ch) => ch.id);
+  const { data: memories, error: memoryError } = await supabase
+    .from("chapter_memories")
+    .select("*")
+    .in("chapter_id", chapterIds);
+
+  if (memoryError) {
+    console.error("Error loading chapter memories:", memoryError);
+  }
+
+  const memoryMap = new Map(memories?.map((m) => [m.chapter_id, m]) || []);
+
+  const mappedChapters = chapters.map((ch) => {
+    const memory = memoryMap.get(ch.id);
+
+    console.log(`Chapter ${ch.title} (id: ${ch.id}): memory found`, memory);
+
+    const metadata = memory
       ? {
-          summary: ch.chapter_memories[0].summary || "",
-          keyEvents: ch.chapter_memories[0].key_events || [],
-          items: ch.chapter_memories[0].items || [],
-          location: ch.chapter_memories[0].location || "",
-          characters: ch.chapter_memories[0].characters || [],
+          summary: memory.summary || "",
+          keyEvents: memory.key_events || [],
+          items: memory.items || [],
+          location: memory.location || "",
+          characters: memory.characters || [],
         }
-      : undefined,
-  }));
+      : undefined;
+
+    console.log(
+      `Chapter ${ch.title} (id: ${ch.id}): metadata loaded`,
+      metadata
+    );
+
+    return {
+      id: ch.id,
+      title: ch.title,
+      content: ch.content || "",
+      wordCount: ch.word_count,
+      outlineId: ch.outline_id,
+      metadata,
+    };
+  });
+
+  return mappedChapters;
+};
+
+// User credits operations
+export const getUserCredits = async (): Promise<UserCredits | null> => {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data, error } = await supabase
+    .from("user_credits")
+    .select("*")
+    .eq("user_id", user.id)
+    .single();
+
+  if (error) {
+    console.error("Error getting user credits:", error);
+    return null;
+  }
+
+  return data;
+};
+
+export const initializeUserCredits = async (): Promise<boolean> => {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return false;
+
+  // Check if user already has credits
+  const existingCredits = await getUserCredits();
+  if (existingCredits) return true;
+
+  // Initialize with new user credits
+  const { error } = await supabase.from("user_credits").insert({
+    user_id: user.id,
+    credits: NEW_USER_CREDITS,
+  });
+
+  if (error) {
+    console.error("Error initializing user credits:", error);
+    return false;
+  }
+
+  return true;
+};
+
+export const deductUserCredits = async (amount: number): Promise<boolean> => {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return false;
+
+  const currentCredits = await getUserCredits();
+  if (!currentCredits || currentCredits.credits < amount) {
+    return false; // Insufficient credits
+  }
+
+  const { error } = await supabase
+    .from("user_credits")
+    .update({ credits: currentCredits.credits - amount })
+    .eq("user_id", user.id);
+
+  if (error) {
+    console.error("Error deducting user credits:", error);
+    return false;
+  }
+
+  return true;
+};
+
+export const addUserCredits = async (amount: number): Promise<boolean> => {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return false;
+
+  const currentCredits = await getUserCredits();
+  if (!currentCredits) return false;
+
+  const { error } = await supabase
+    .from("user_credits")
+    .update({ credits: currentCredits.credits + amount })
+    .eq("user_id", user.id);
+
+  if (error) {
+    console.error("Error adding user credits:", error);
+    return false;
+  }
+
+  return true;
+};
+
+// Admin operations
+export const checkIsAdmin = async (): Promise<boolean> => {
+  try {
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError) {
+      console.error("Auth error:", authError);
+      return false;
+    }
+
+    if (!user) {
+      console.log("No authenticated user");
+      return false;
+    }
+
+    console.log("Checking admin status for user:", user.email);
+
+    const { data, error } = await supabase
+      .from("admin_users")
+      .select("id")
+      .eq("user_id", user.id)
+      .single();
+
+    if (error) {
+      // If no record found, it's not an error - just not admin
+      if (error.code === "PGRST116") {
+        console.log("User is not an admin");
+        return false;
+      }
+      console.error("Database error checking admin status:", error);
+      return false;
+    }
+
+    console.log("User is admin:", !!data);
+    return !!data;
+  } catch (err) {
+    console.error("Unexpected error in checkIsAdmin:", err);
+    return false;
+  }
+};
+
+export const getAdminUsers = async (): Promise<
+  { id: string; user_id: string; email: string; created_at: string }[]
+> => {
+  const { data, error } = await supabase
+    .from("admin_users")
+    .select("*")
+    .order("created_at");
+
+  if (error) {
+    console.error("Error getting admin users:", error);
+    return [];
+  }
+
+  return data || [];
+};
+
+export const addAdminUser = async (email: string): Promise<boolean> => {
+  // First get user by email from auth.users
+  const { data: authUser, error: authError } = await supabase
+    .from("auth.users")
+    .select("id")
+    .eq("email", email)
+    .single();
+
+  if (authError || !authUser) {
+    console.error("User not found:", authError);
+    return false;
+  }
+
+  const { error } = await supabase.from("admin_users").insert({
+    user_id: authUser.id,
+    email: email,
+  });
+
+  if (error) {
+    console.error("Error adding admin user:", error);
+    return false;
+  }
+
+  return true;
+};
+
+export const removeAdminUser = async (userId: string): Promise<boolean> => {
+  const { error } = await supabase
+    .from("admin_users")
+    .delete()
+    .eq("user_id", userId);
+
+  if (error) {
+    console.error("Error removing admin user:", error);
+    return false;
+  }
+
+  return true;
 };

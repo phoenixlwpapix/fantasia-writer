@@ -1,7 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { StoryBible, StoryChapter } from "@/lib/types";
 
-const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
+const getAI = () => new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 export async function POST(req: Request) {
   try {
