@@ -11,7 +11,7 @@ import {
 import { Button, Input, TextArea, Card } from "./ui'/UIComponents";
 import { createClient } from "../lib/supabase-client";
 import { CreditConfirmationModal } from "./CreditConfirmationModal";
-import { deductUserCredits } from "../lib/supabase-db";
+import { deductUserCredits, updateBook } from "../lib/supabase-db";
 import {
   generateStoryCore,
   generateCharacterList,
@@ -52,6 +52,7 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onFinish }) => {
     updateInstruction,
     userCredits,
     setUserCredits,
+    currentProjectId,
   } = useStory();
 
   const [currentStep, setCurrentStep] = useState<SetupStep>("CORE");
@@ -119,6 +120,14 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onFinish }) => {
           })
         );
         setBible((prev) => ({ ...prev, outline: formattedOutline }));
+
+        // 立即保存大纲到数据库
+        if (currentProjectId) {
+          await updateBook(currentProjectId, {
+            ...bible,
+            outline: formattedOutline,
+          });
+        }
       } else if (step === "INSTRUCTIONS") {
         const newInstructions = await generateWritingInstructions(bible);
         updateInstruction(newInstructions);
