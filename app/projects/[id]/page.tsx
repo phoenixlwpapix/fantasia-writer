@@ -11,7 +11,7 @@ export default function ProjectPage() {
   const params = useParams();
   const { loadProject, bible, chapters, currentProjectId, loadingProject } =
     useStory();
-  const [viewMode, setViewMode] = useState<"SETUP" | "WRITER" | "AUTO">("AUTO");
+  const [viewMode, setViewMode] = useState<"SETUP" | "WRITER">("SETUP");
 
   useEffect(() => {
     if (params.id) {
@@ -23,21 +23,7 @@ export default function ProjectPage() {
     return <Loading />;
   }
 
-  // Determine actual view based on mode and data state
-  const hasContent = chapters.length > 0;
-  const hasOutline = bible.outline && bible.outline.length > 0;
-  const dataReadyForWriter = hasContent || hasOutline;
-
-  // Logic:
-  // If user explicitly chose a mode, respect it.
-  // Otherwise, if data is ready, show Writer. Else show Setup.
-  const showWriter =
-    viewMode === "WRITER" || (viewMode === "AUTO" && dataReadyForWriter);
-
-  // If explicit setup is requested, show Setup regardless of data.
-  // Exception: If viewMode is 'SETUP', show Setup.
-  const activeComponent =
-    viewMode === "SETUP" ? "SETUP" : showWriter ? "WRITER" : "SETUP";
+  const activeComponent = viewMode;
 
   return (
     <div className="min-h-screen bg-white">
