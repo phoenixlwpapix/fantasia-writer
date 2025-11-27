@@ -9,18 +9,16 @@ import { Loader2 } from "lucide-react";
 
 export default function ProjectPage() {
   const params = useParams();
-  const { loadProject, bible, chapters } = useStory();
-  const [isLoaded, setIsLoaded] = useState(false);
+  const { loadProject, bible, chapters, currentProjectId } = useStory();
   const [viewMode, setViewMode] = useState<"SETUP" | "WRITER" | "AUTO">("AUTO");
 
   useEffect(() => {
     if (params.id) {
       loadProject(params.id as string);
-      setIsLoaded(true);
     }
-  }, [params.id, loadProject]);
+  }, [params.id]);
 
-  if (!isLoaded) {
+  if (!currentProjectId) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
         <Loader2 className="w-8 h-8 animate-spin text-gray-300" />

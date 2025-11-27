@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useStory } from "../../components/StoryProvider";
-import { Button, Badge } from "../../components/ui/UIComponents";
+import { Button, Badge } from "../../components/ui'/UIComponents";
 import {
   Plus,
   Trash2,
@@ -116,7 +116,7 @@ export default function ProjectDashboard() {
   // Clear current project state when entering dashboard to prevent overwrites
   useEffect(() => {
     closeProject();
-  }, [closeProject]);
+  }, []);
 
   const handleConfirmDelete = () => {
     if (projectToDelete) {

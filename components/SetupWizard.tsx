@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useStory } from "./StoryProvider";
 import { SetupStep, Character, ChapterOutline } from "../lib/types";
-import { Button, Input, TextArea, Card } from "./ui/UIComponents";
+import { Button, Input, TextArea, Card } from "./ui'/UIComponents";
 import {
   generateStoryCore,
   generateCharacterList,
