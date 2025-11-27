@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useStory } from "../../components/StoryProvider";
 import { Button, Badge } from "../../components/ui'/UIComponents";
+import { createClient } from "@/lib/supabase-client";
+import Loading from "../loading";
 import {
   Plus,
   Trash2,
@@ -102,6 +104,7 @@ export default function ProjectDashboard() {
   const router = useRouter();
   const {
     projects,
+    loadingProjects,
     createProject,
     deleteProject,
     updateProjectMetadata,
@@ -125,8 +128,10 @@ export default function ProjectDashboard() {
     }
   };
 
-  const handleLogout = () => {
-    router.push("/login");
+  const handleLogout = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/");
   };
 
   const filteredProjects = projects.filter((project) => {
@@ -284,204 +289,209 @@ export default function ProjectDashboard() {
           )}
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-8 md:gap-10">
-          {/* Create New Project - Book Cover Style (Only visible when not searching/filtering) */}
-          {!searchQuery && !filterColor && (
-            <button
-              onClick={createProject}
-              className="group relative aspect-[2/3] bg-white border-2 border-dashed border-gray-300 rounded-r-lg rounded-l-[2px] flex flex-col items-center justify-center hover:border-primary hover:bg-gray-50 transition-all duration-500 hover:-translate-y-2 hover:shadow-xl cursor-pointer"
-            >
-              <div className="w-14 h-14 rounded-full bg-black text-white flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg">
-                <Plus className="w-6 h-6" />
-              </div>
-              <span className="font-serif text-xl font-bold text-primary">
-                新建书籍
-              </span>
-              <span className="text-[10px] text-secondary mt-2 uppercase tracking-widest">
-                Start a new story
-              </span>
-            </button>
-          )}
+        {/* Loading State */}
+        {loadingProjects && <Loading />}
 
-          {/* Project List - Book Covers */}
-          {filteredProjects.map((project) => {
-            // Genre is often stored in summary, split if multiple tags
-            const genres = (project.summary || "未分类")
-              .split(/[,，/、]/)
-              .map((g) => g.trim())
-              .filter(Boolean);
-            const mainGenre = genres[0] || "NOVEL";
-            const spineClass =
-              project.spineColor || "from-gray-800 to-gray-700";
-
-            return (
-              <div
-                key={project.id}
-                className="group relative aspect-[2/3] bg-[#fdfbf7] rounded-r-lg rounded-l-[2px] shadow-md hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 cursor-pointer overflow-hidden flex flex-col select-none animate-in fade-in duration-500"
-              >
-                {/* The entire card is a Link for best performance/SEO */}
-                <Link
-                  href={`/projects/${project.id}`}
-                  className="absolute inset-0 z-20"
-                />
-
-                {/* Spine Effect (Left Border) */}
-                <div
-                  className={`absolute left-0 top-0 bottom-0 w-3 bg-gradient-to-r ${spineClass} z-10 rounded-l-[2px]`}
-                ></div>
-                <div className="absolute left-3 top-0 bottom-0 w-[1px] bg-black/10 z-10"></div>
-
-                {/* Subtle Paper Texture Gradient */}
-                <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,0.02)_12px,rgba(0,0,0,0)_15px,rgba(0,0,0,0)_100%)] pointer-events-none" />
-
-                {/* Actions (Delete & Settings) */}
-                <div
-                  className={`absolute top-3 right-3 z-30 flex items-center gap-1.5 transition-opacity duration-200 ${
-                    openSettingsId === project.id
-                      ? "opacity-100"
-                      : "opacity-0 group-hover:opacity-100"
-                  }`}
-                >
-                  {/* Settings Button */}
-                  <div
-                    className={`p-2 rounded-full shadow-sm backdrop-blur-sm cursor-pointer transition-colors ${
-                      openSettingsId === project.id
-                        ? "bg-gray-100 text-black ring-1 ring-black"
-                        : "bg-white/90 text-gray-400 hover:bg-gray-100 hover:text-black"
-                    }`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setOpenSettingsId(
-                        openSettingsId === project.id ? null : project.id
-                      );
-                      setIsUserMenuOpen(false);
-                    }}
-                    title="设置封面"
-                  >
-                    <Settings className="w-3.5 h-3.5" />
-                  </div>
-
-                  {/* Delete Button */}
-                  <div
-                    className="p-2 bg-white/90 hover:bg-red-50 text-gray-400 hover:text-red-600 rounded-full shadow-sm backdrop-blur-sm cursor-pointer transition-colors"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setProjectToDelete(project.id);
-                      setOpenSettingsId(null);
-                    }}
-                    title="删除项目"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </div>
-                </div>
-
-                {/* Color Picker Popover */}
-                {openSettingsId === project.id && (
-                  <div
-                    className="absolute top-12 right-2 z-50 bg-white/95 backdrop-blur-md shadow-xl p-2.5 rounded-xl border border-gray-100 flex gap-2 animate-in fade-in zoom-in-95 duration-200"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {SPINE_COLORS.map((c) => (
-                      <button
-                        key={c.name}
-                        title={c.name}
-                        className={`w-6 h-6 rounded-full bg-gradient-to-br ${
-                          c.value
-                        } shadow-sm transition-all hover:scale-110 focus:outline-none ring-2 ring-offset-1 ${
-                          project.spineColor === c.value
-                            ? "ring-black scale-110"
-                            : "ring-transparent hover:ring-gray-200"
-                        }`}
-                        onClick={() => {
-                          updateProjectMetadata(project.id, {
-                            spineColor: c.value,
-                          });
-                          // Optional: Close on selection or keep open
-                        }}
-                      />
-                    ))}
-                  </div>
-                )}
-
-                <div className="relative z-10 flex flex-col h-full p-5 pl-7 items-center text-center pointer-events-none">
-                  {/* Top Label: Genre */}
-                  <div className="mt-6 mb-6">
-                    <span className="text-[9px] font-bold tracking-[0.25em] uppercase text-secondary border-b border-secondary/30 pb-1">
-                      {mainGenre}
-                    </span>
-                  </div>
-
-                  {/* Title */}
-                  <h3
-                    className={`font-serif font-bold text-primary leading-[1.15] mb-4 px-1 ${
-                      project.title.length > 8 ? "text-xl" : "text-2xl"
-                    }`}
-                  >
-                    {project.title || "未命名故事"}
-                  </h3>
-
-                  {/* Divider */}
-                  <div className="w-6 h-0.5 bg-primary mb-5"></div>
-
-                  {/* Theme / Blurb */}
-                  <div className="flex-1 w-full flex items-start justify-center overflow-hidden">
-                    <p className="text-[10px] text-secondary/80 font-serif italic leading-relaxed line-clamp-5 px-2">
-                      {project.theme || "暂无主题描述..."}
-                    </p>
-                  </div>
-
-                  {/* Footer Stats */}
-                  <div className="w-full pt-4 mt-2 border-t border-gray-200/60 flex items-end justify-between text-[9px] text-gray-400 font-sans uppercase tracking-wider">
-                    <div className="flex flex-col items-start gap-0.5">
-                      <span className="font-bold text-primary/80">
-                        {project.wordCount > 10000
-                          ? `${(project.wordCount / 1000).toFixed(1)}千`
-                          : project.wordCount.toLocaleString()}{" "}
-                        字
-                      </span>
-                      <span className="scale-90 origin-left">
-                        {new Date(project.lastModified).toLocaleDateString()}
-                      </span>
-                    </div>
-
-                    <div className="flex flex-col items-center gap-1">
-                      <div className="w-5 h-5 text-primary/80">
-                        <ProgressRing
-                          progress={project.progress || 0}
-                          size={20}
-                          stroke={2.5}
-                        />
-                      </div>
-                      <span className="text-[8px] font-bold text-primary/60">
-                        {project.progress}%
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Hover Overlay for depth */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-              </div>
-            );
-          })}
-
-          {/* Empty State */}
-          {(searchQuery || filterColor) && filteredProjects.length === 0 && (
-            <div className="col-span-full py-20 flex flex-col items-center justify-center text-secondary opacity-60">
-              <Search className="w-12 h-12 mb-4 stroke-1" />
-              <p className="font-serif text-lg">未找到相关故事</p>
+        {!loadingProjects && (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-8 md:gap-10">
+            {/* Create New Project - Book Cover Style (Only visible when not searching/filtering) */}
+            {!searchQuery && !filterColor && (
               <button
-                onClick={() => {
-                  setSearchQuery("");
-                  setFilterColor(null);
-                }}
-                className="text-sm mt-2 hover:underline hover:text-primary"
+                onClick={createProject}
+                className="group relative aspect-[2/3] bg-white border-2 border-dashed border-gray-300 rounded-r-lg rounded-l-[2px] flex flex-col items-center justify-center hover:border-primary hover:bg-gray-50 transition-all duration-500 hover:-translate-y-2 hover:shadow-xl cursor-pointer"
               >
-                清除所有筛选条件
+                <div className="w-14 h-14 rounded-full bg-black text-white flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300 shadow-lg">
+                  <Plus className="w-6 h-6" />
+                </div>
+                <span className="font-serif text-xl font-bold text-primary">
+                  新建书籍
+                </span>
+                <span className="text-[10px] text-secondary mt-2 uppercase tracking-widest">
+                  Start a new story
+                </span>
               </button>
-            </div>
-          )}
-        </div>
+            )}
+
+            {/* Project List - Book Covers */}
+            {filteredProjects.map((project) => {
+              // Genre is often stored in summary, split if multiple tags
+              const genres = (project.summary || "未分类")
+                .split(/[,，/、]/)
+                .map((g) => g.trim())
+                .filter(Boolean);
+              const mainGenre = genres[0] || "NOVEL";
+              const spineClass =
+                project.spineColor || "from-gray-800 to-gray-700";
+
+              return (
+                <div
+                  key={project.id}
+                  className="group relative aspect-[2/3] bg-[#fdfbf7] rounded-r-lg rounded-l-[2px] shadow-md hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 cursor-pointer overflow-hidden flex flex-col select-none animate-in fade-in duration-500"
+                >
+                  {/* The entire card is a Link for best performance/SEO */}
+                  <Link
+                    href={`/projects/${project.id}`}
+                    className="absolute inset-0 z-20"
+                  />
+
+                  {/* Spine Effect (Left Border) */}
+                  <div
+                    className={`absolute left-0 top-0 bottom-0 w-3 bg-gradient-to-r ${spineClass} z-10 rounded-l-[2px]`}
+                  ></div>
+                  <div className="absolute left-3 top-0 bottom-0 w-[1px] bg-black/10 z-10"></div>
+
+                  {/* Subtle Paper Texture Gradient */}
+                  <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,0.02)_12px,rgba(0,0,0,0)_15px,rgba(0,0,0,0)_100%)] pointer-events-none" />
+
+                  {/* Actions (Delete & Settings) */}
+                  <div
+                    className={`absolute top-3 right-3 z-30 flex items-center gap-1.5 transition-opacity duration-200 ${
+                      openSettingsId === project.id
+                        ? "opacity-100"
+                        : "opacity-0 group-hover:opacity-100"
+                    }`}
+                  >
+                    {/* Settings Button */}
+                    <div
+                      className={`p-2 rounded-full shadow-sm backdrop-blur-sm cursor-pointer transition-colors ${
+                        openSettingsId === project.id
+                          ? "bg-gray-100 text-black ring-1 ring-black"
+                          : "bg-white/90 text-gray-400 hover:bg-gray-100 hover:text-black"
+                      }`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setOpenSettingsId(
+                          openSettingsId === project.id ? null : project.id
+                        );
+                        setIsUserMenuOpen(false);
+                      }}
+                      title="设置封面"
+                    >
+                      <Settings className="w-3.5 h-3.5" />
+                    </div>
+
+                    {/* Delete Button */}
+                    <div
+                      className="p-2 bg-white/90 hover:bg-red-50 text-gray-400 hover:text-red-600 rounded-full shadow-sm backdrop-blur-sm cursor-pointer transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setProjectToDelete(project.id);
+                        setOpenSettingsId(null);
+                      }}
+                      title="删除项目"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </div>
+                  </div>
+
+                  {/* Color Picker Popover */}
+                  {openSettingsId === project.id && (
+                    <div
+                      className="absolute top-12 right-2 z-50 bg-white/95 backdrop-blur-md shadow-xl p-2.5 rounded-xl border border-gray-100 flex gap-2 animate-in fade-in zoom-in-95 duration-200"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {SPINE_COLORS.map((c) => (
+                        <button
+                          key={c.name}
+                          title={c.name}
+                          className={`w-6 h-6 rounded-full bg-gradient-to-br ${
+                            c.value
+                          } shadow-sm transition-all hover:scale-110 focus:outline-none ring-2 ring-offset-1 ${
+                            project.spineColor === c.value
+                              ? "ring-black scale-110"
+                              : "ring-transparent hover:ring-gray-200"
+                          }`}
+                          onClick={() => {
+                            updateProjectMetadata(project.id, {
+                              spineColor: c.value,
+                            });
+                            // Optional: Close on selection or keep open
+                          }}
+                        />
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="relative z-10 flex flex-col h-full p-5 pl-7 items-center text-center pointer-events-none">
+                    {/* Top Label: Genre */}
+                    <div className="mt-6 mb-6">
+                      <span className="text-[9px] font-bold tracking-[0.25em] uppercase text-secondary border-b border-secondary/30 pb-1">
+                        {mainGenre}
+                      </span>
+                    </div>
+
+                    {/* Title */}
+                    <h3
+                      className={`font-serif font-bold text-primary leading-[1.15] mb-4 px-1 ${
+                        project.title.length > 8 ? "text-xl" : "text-2xl"
+                      }`}
+                    >
+                      {project.title || "未命名故事"}
+                    </h3>
+
+                    {/* Divider */}
+                    <div className="w-6 h-0.5 bg-primary mb-5"></div>
+
+                    {/* Theme / Blurb */}
+                    <div className="flex-1 w-full flex items-start justify-center overflow-hidden">
+                      <p className="text-[10px] text-secondary/80 font-serif italic leading-relaxed line-clamp-5 px-2">
+                        {project.theme || "暂无主题描述..."}
+                      </p>
+                    </div>
+
+                    {/* Footer Stats */}
+                    <div className="w-full pt-4 mt-2 border-t border-gray-200/60 flex items-end justify-between text-[9px] text-gray-400 font-sans uppercase tracking-wider">
+                      <div className="flex flex-col items-start gap-0.5">
+                        <span className="font-bold text-primary/80">
+                          {project.wordCount > 10000
+                            ? `${(project.wordCount / 1000).toFixed(1)}千`
+                            : project.wordCount.toLocaleString()}{" "}
+                          字
+                        </span>
+                        <span className="scale-90 origin-left">
+                          {new Date(project.lastModified).toLocaleDateString()}
+                        </span>
+                      </div>
+
+                      <div className="flex flex-col items-center gap-1">
+                        <div className="w-5 h-5 text-primary/80">
+                          <ProgressRing
+                            progress={project.progress || 0}
+                            size={20}
+                            stroke={2.5}
+                          />
+                        </div>
+                        <span className="text-[8px] font-bold text-primary/60">
+                          {project.progress}%
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Hover Overlay for depth */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+                </div>
+              );
+            })}
+
+            {/* Empty State */}
+            {(searchQuery || filterColor) && filteredProjects.length === 0 && (
+              <div className="col-span-full py-20 flex flex-col items-center justify-center text-secondary opacity-60">
+                <Search className="w-12 h-12 mb-4 stroke-1" />
+                <p className="font-serif text-lg">未找到相关故事</p>
+                <button
+                  onClick={() => {
+                    setSearchQuery("");
+                    setFilterColor(null);
+                  }}
+                  className="text-sm mt-2 hover:underline hover:text-primary"
+                >
+                  清除所有筛选条件
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Delete Confirmation Modal */}
         {projectToDelete && (

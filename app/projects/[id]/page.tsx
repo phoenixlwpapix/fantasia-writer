@@ -5,11 +5,12 @@ import { useParams } from "next/navigation";
 import { useStory } from "../../../components/StoryProvider";
 import { SetupWizard } from "../../../components/SetupWizard";
 import { WritingInterface } from "../../../components/WritingInterface";
-import { Loader2 } from "lucide-react";
+import Loading from "../../loading";
 
 export default function ProjectPage() {
   const params = useParams();
-  const { loadProject, bible, chapters, currentProjectId } = useStory();
+  const { loadProject, bible, chapters, currentProjectId, loadingProject } =
+    useStory();
   const [viewMode, setViewMode] = useState<"SETUP" | "WRITER" | "AUTO">("AUTO");
 
   useEffect(() => {
@@ -18,12 +19,8 @@ export default function ProjectPage() {
     }
   }, [params.id]);
 
-  if (!currentProjectId) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <Loader2 className="w-8 h-8 animate-spin text-gray-300" />
-      </div>
-    );
+  if (loadingProject || !currentProjectId) {
+    return <Loading />;
   }
 
   // Determine actual view based on mode and data state

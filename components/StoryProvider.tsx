@@ -10,6 +10,17 @@ import React, {
 } from "react";
 import { useRouter } from "next/navigation";
 import { StoryBible, StoryChapter, ProjectMetadata } from "../lib/types";
+import {
+  createBook,
+  updateBook,
+  loadBook,
+  loadUserBooks,
+  deleteBook,
+  saveChapter,
+  loadChapters,
+  updateBookSpineColor,
+} from "../lib/supabase-db";
+import { createClient } from "../lib/supabase-client";
 
 const DEFAULT_BIBLE: StoryBible = {
   core: {
@@ -375,6 +386,8 @@ interface StoryContextType {
 
   // Project Management
   projects: ProjectMetadata[];
+  loadingProjects: boolean;
+  loadingProject: boolean;
   currentProjectId: string | null;
   createProject: () => void;
   openProject: (id: string) => void;
@@ -386,8 +399,7 @@ interface StoryContextType {
 
 const StoryContext = createContext<StoryContextType | undefined>(undefined);
 
-const STORAGE_KEY_INDEX = "fantasia_project_index";
-const STORAGE_KEY_PREFIX = "fantasia_project_data_";
+// Removed localStorage constants - now using Supabase
 
 export const StoryProvider: React.FC<{ children: ReactNode }> = ({
   children,
@@ -396,220 +408,83 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({
 
   // App State
   const [projects, setProjects] = useState<ProjectMetadata[]>([]);
+  const [loadingProjects, setLoadingProjects] = useState(true);
+  const [loadingProject, setLoadingProject] = useState(false);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
 
   // Workspace State
   const [bible, setBible] = useState<StoryBible>(DEFAULT_BIBLE);
   const [chapters, setChapters] = useState<StoryChapter[]>([]);
 
-  // Load Project Index on Mount & Inject Mock Projects if missing
+  // Load user projects from Supabase on mount and auth changes
   useEffect(() => {
-    // Check if we are in the browser
-    if (typeof window === "undefined") return;
-
-    const indexJson = localStorage.getItem(STORAGE_KEY_INDEX);
-    let currentProjects: ProjectMetadata[] = [];
-
-    if (indexJson) {
+    const loadProjects = async () => {
+      setLoadingProjects(true);
       try {
-        currentProjects = JSON.parse(indexJson);
-      } catch (e) {
-        console.error("Failed to load project index", e);
+        const supabase = createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (user) {
+          const userProjects = await loadUserBooks();
+          setProjects(userProjects);
+        } else {
+          setProjects([]);
+        }
+      } finally {
+        setLoadingProjects(false);
       }
-    }
+    };
 
-    // --- MOCK PROJECT 1 INJECTION (Neon Rain) ---
-    const hasMockInIndex = currentProjects.some(
-      (p) => p.id === MOCK_PROJECT_ID
-    );
-    const hasMockData = localStorage.getItem(
-      `${STORAGE_KEY_PREFIX}${MOCK_PROJECT_ID}`
-    );
-
-    if (!hasMockInIndex || !hasMockData) {
-      const mockProjectMeta: ProjectMetadata = {
-        id: MOCK_PROJECT_ID,
-        title: MOCK_BIBLE.core.title,
-        summary: MOCK_BIBLE.core.genre,
-        theme: MOCK_BIBLE.core.theme,
-        lastModified: Date.now(),
-        wordCount: 0,
-        progress: 0,
-        spineColor: "from-gray-800 to-gray-700",
-      };
-      const mockData = {
-        bible: MOCK_BIBLE,
-        chapters: [],
-        lastModified: Date.now(),
-      };
-      localStorage.setItem(
-        `${STORAGE_KEY_PREFIX}${MOCK_PROJECT_ID}`,
-        JSON.stringify(mockData)
-      );
-      if (!hasMockInIndex) {
-        currentProjects.push(mockProjectMeta);
-      }
-    }
-
-    // --- MOCK PROJECT 2 INJECTION (Midnight Tea House) ---
-    const hasMock2InIndex = currentProjects.some(
-      (p) => p.id === MOCK_PROJECT_ID_2
-    );
-    const hasMock2Data = localStorage.getItem(
-      `${STORAGE_KEY_PREFIX}${MOCK_PROJECT_ID_2}`
-    );
-
-    if (!hasMock2InIndex || !hasMock2Data) {
-      const totalWords = MOCK_CHAPTERS_2.reduce(
-        (acc, c) => acc + c.wordCount,
-        0
-      );
-
-      const mockProjectMeta2: ProjectMetadata = {
-        id: MOCK_PROJECT_ID_2,
-        title: MOCK_BIBLE_2.core.title,
-        summary: MOCK_BIBLE_2.core.genre,
-        theme: MOCK_BIBLE_2.core.theme,
-        lastModified: Date.now() + 1000, // Slightly newer
-        wordCount: totalWords,
-        progress: 100, // Finished project
-        spineColor: "from-gray-800 to-gray-700",
-      };
-
-      const mockData2 = {
-        bible: MOCK_BIBLE_2,
-        chapters: MOCK_CHAPTERS_2,
-        lastModified: Date.now(),
-      };
-      localStorage.setItem(
-        `${STORAGE_KEY_PREFIX}${MOCK_PROJECT_ID_2}`,
-        JSON.stringify(mockData2)
-      );
-
-      if (!hasMock2InIndex) {
-        // Add to beginning of list
-        currentProjects = [mockProjectMeta2, ...currentProjects];
-      }
-    }
-
-    // Final Sort and Save
-    currentProjects.sort((a, b) => b.lastModified - a.lastModified);
-    localStorage.setItem(STORAGE_KEY_INDEX, JSON.stringify(currentProjects));
-    setProjects(currentProjects);
+    loadProjects();
   }, []);
 
-  // Save Current Project Logic (Auto-save)
+  // Auto-save current project to Supabase
   useEffect(() => {
-    if (!currentProjectId || typeof window === "undefined") return;
+    if (!currentProjectId) return;
 
-    const saveData = {
-      bible,
-      chapters,
-      lastModified: Date.now(),
+    const autoSave = async () => {
+      // Save book data
+      await updateBook(currentProjectId, bible);
+
+      // Save chapters
+      for (const chapter of chapters) {
+        await saveChapter(chapter, currentProjectId);
+      }
+
+      // Refresh projects list to update metadata
+      const updatedProjects = await loadUserBooks();
+      setProjects(updatedProjects);
     };
 
-    // Save actual data
-    localStorage.setItem(
-      `${STORAGE_KEY_PREFIX}${currentProjectId}`,
-      JSON.stringify(saveData)
-    );
-
-    // Update Index Metadata
-    setProjects((prev) => {
-      const newProjects = prev.map((p) => {
-        if (p.id === currentProjectId) {
-          const currentWordCount = chapters.reduce(
-            (acc, c) => acc + c.wordCount,
-            0
-          );
-
-          // Progress calculated by chapters count ratio
-          const generatedCount = chapters.filter(
-            (c) => c.content && c.content.length > 0
-          ).length;
-          const totalCount =
-            bible.outline.length > 0
-              ? bible.outline.length
-              : bible.core.targetChapterCount || 8;
-          const progress = Math.min(
-            100,
-            Math.floor((generatedCount / Math.max(totalCount, 1)) * 100)
-          );
-
-          return {
-            ...p,
-            title: bible.core.title || bible.core.theme || "未命名项目",
-            summary: bible.core.genre || "未分类",
-            theme: bible.core.theme || "", // Save theme for cover display
-            wordCount: currentWordCount,
-            lastModified: Date.now(),
-            progress: progress,
-            // Keep existing spine color
-            spineColor: p.spineColor,
-          };
-        }
-        return p;
-      });
-
-      // Persist Index
-      localStorage.setItem(STORAGE_KEY_INDEX, JSON.stringify(newProjects));
-      return newProjects;
-    });
-  }, [bible, chapters, currentProjectId]); // Dependencies: Trigger save when these change
+    // Debounce auto-save
+    const timeoutId = setTimeout(autoSave, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [bible, chapters, currentProjectId]);
 
   const createProject = () => {
-    const newId = `proj_${Date.now()}`;
-    const newProjectMeta: ProjectMetadata = {
-      id: newId,
-      title: "新项目",
-      summary: "未分类",
-      theme: "",
-      lastModified: Date.now(),
-      wordCount: 0,
-      progress: 0,
-      spineColor: "from-gray-800 to-gray-700",
-    };
-
-    // Initialize Data in LocalStorage immediately
-    const initialData = {
-      bible: DEFAULT_BIBLE,
-      chapters: [],
-      lastModified: Date.now(),
-    };
-    localStorage.setItem(
-      `${STORAGE_KEY_PREFIX}${newId}`,
-      JSON.stringify(initialData)
-    );
-
-    // Update Index
-    const updatedProjects = [newProjectMeta, ...projects];
-    setProjects(updatedProjects);
-    localStorage.setItem(STORAGE_KEY_INDEX, JSON.stringify(updatedProjects));
-
-    // Navigate to project page
-    router.push(`/projects/${newId}`);
+    router.push("/projects/new");
   };
 
   const openProject = (id: string) => {
     router.push(`/projects/${id}`);
   };
 
-  const loadProject = (id: string) => {
-    if (typeof window === "undefined") return;
-
-    const dataJson = localStorage.getItem(`${STORAGE_KEY_PREFIX}${id}`);
-    if (dataJson) {
-      try {
-        const data = JSON.parse(dataJson);
-        setBible(data.bible || DEFAULT_BIBLE);
-        setChapters(data.chapters || []);
+  const loadProject = async (id: string) => {
+    setLoadingProject(true);
+    try {
+      const loadedBible = await loadBook(id);
+      if (loadedBible) {
+        setBible(loadedBible);
+        const loadedChapters = await loadChapters(id);
+        setChapters(loadedChapters);
         setCurrentProjectId(id);
-      } catch (e) {
-        console.error("Failed to load project data", e);
+      } else {
+        console.error("Failed to load project");
       }
-    } else {
-      console.error("Project data not found");
-      // Optionally redirect to 404 or dashboard if not found
+    } finally {
+      setLoadingProject(false);
     }
   };
 
@@ -619,15 +494,16 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({
     setChapters([]);
   };
 
-  const deleteProject = (id: string) => {
-    const newProjects = projects.filter((p) => p.id !== id);
-    setProjects(newProjects);
-    localStorage.setItem(STORAGE_KEY_INDEX, JSON.stringify(newProjects));
-    localStorage.removeItem(`${STORAGE_KEY_PREFIX}${id}`);
+  const deleteProject = async (id: string) => {
+    const success = await deleteBook(id);
+    if (success) {
+      const newProjects = projects.filter((p) => p.id !== id);
+      setProjects(newProjects);
 
-    if (currentProjectId === id) {
-      setCurrentProjectId(null);
-      router.push("/projects");
+      if (currentProjectId === id) {
+        setCurrentProjectId(null);
+        router.push("/projects");
+      }
     }
   };
 
@@ -646,14 +522,16 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({
   );
 
   const updateProjectMetadata = useCallback(
-    (id: string, data: Partial<ProjectMetadata>) => {
-      setProjects((prev) => {
-        const newProjects = prev.map((p) =>
-          p.id === id ? { ...p, ...data } : p
-        );
-        localStorage.setItem(STORAGE_KEY_INDEX, JSON.stringify(newProjects));
-        return newProjects;
-      });
+    async (id: string, data: Partial<ProjectMetadata>) => {
+      // Update local state
+      setProjects((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, ...data } : p))
+      );
+
+      // Save spine color to database if provided
+      if (data.spineColor) {
+        await updateBookSpineColor(id, data.spineColor);
+      }
     },
     []
   );
@@ -668,6 +546,8 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({
         chapters,
         setChapters,
         projects,
+        loadingProjects,
+        loadingProject,
         currentProjectId,
         createProject,
         openProject,

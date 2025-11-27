@@ -12,20 +12,59 @@ import {
   Github,
 } from "lucide-react";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase-client";
 
 export default function LoginPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [isRegisterLoading, setIsRegisterLoading] = useState(false);
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    // Simulate auth delay for UX
-    setTimeout(() => {
-      setIsLoading(false);
+    setError("");
+
+    const supabase = createClient();
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      setError(error.message);
+    } else {
       router.push("/projects");
-    }, 1200);
+    }
+
+    setIsLoading(false);
+  };
+
+  const handleRegister = async () => {
+    if (!email || !password) {
+      setError("Please enter email and password");
+      return;
+    }
+    setIsRegisterLoading(true);
+    setError("");
+
+    const supabase = createClient();
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+    });
+
+    if (error) {
+      setError(error.message);
+    } else {
+      setError(
+        "Registration successful! Please check your email to confirm your account."
+      );
+    }
+
+    setIsRegisterLoading(false);
   };
 
   // Inspirational fragments that float on the right side
@@ -104,6 +143,8 @@ export default function LoginPage() {
                 <input
                   type="password"
                   required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 pl-11 text-sm outline-none focus:border-black focus:ring-1 focus:ring-black transition-all placeholder-gray-300"
                   placeholder="••••••••"
                 />
@@ -124,6 +165,7 @@ export default function LoginPage() {
                 </>
               )}
             </button>
+            {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
           </form>
 
           <div className="relative my-8">
@@ -148,12 +190,13 @@ export default function LoginPage() {
 
           <p className="text-center text-xs text-secondary mt-8">
             还没有账号?{" "}
-            <Link
-              href="/projects"
-              className="text-black font-bold hover:underline underline-offset-4"
+            <button
+              onClick={handleRegister}
+              disabled={isRegisterLoading}
+              className="text-black font-bold hover:underline underline-offset-4 disabled:opacity-50"
             >
-              立即申请访问权限
-            </Link>
+              {isRegisterLoading ? "注册中..." : "立即注册"}
+            </button>
           </p>
         </div>
 

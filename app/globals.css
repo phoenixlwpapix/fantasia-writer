@@ -1,9 +1,11 @@
+@import url("https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&display=swap");
 @import "tailwindcss";
 
 @theme {
   --font-sans: var(--font-inter);
   --font-serif: var(--font-noto-serif-sc);
   --font-mono: var(--font-jetbrains-mono);
+  --font-noto-serif-sc: "Noto Serif SC", serif;
 
   --color-primary: #111111;
   --color-secondary: #666666;

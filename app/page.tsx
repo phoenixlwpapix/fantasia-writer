@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase-client";
 import {
   ArrowRight,
   Feather,
@@ -157,6 +158,27 @@ const ConsoleSimulator: React.FC = () => {
 };
 
 export default function LandingPage() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    const supabase = createClient();
+    const checkAuth = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      setIsAuthenticated(!!session);
+    };
+    checkAuth();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAuthenticated(!!session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
   return (
     <div className="min-h-screen bg-white text-primary font-sans selection:bg-black selection:text-white overflow-x-hidden">
       {/* Navigation */}
@@ -188,7 +210,7 @@ export default function LandingPage() {
             </a>
           </div>
           <Link
-            href="/login"
+            href={isAuthenticated ? "/projects" : "/login"}
             className="bg-black text-white px-6 py-2.5 rounded-full text-sm font-medium hover:bg-gray-800 transition-all active:scale-95 flex items-center gap-2 group shadow-lg hover:shadow-xl"
           >
             开始创作
@@ -246,7 +268,7 @@ export default function LandingPage() {
           style={{ animationDelay: "0.8s" }}
         >
           <Link
-            href="/login"
+            href={isAuthenticated ? "/projects" : "/login"}
             className="w-full sm:w-auto px-8 py-4 bg-black text-white rounded-lg text-lg font-medium hover:shadow-xl hover:-translate-y-1 transition-all duration-500 flex items-center justify-center gap-2"
           >
             <Feather className="w-5 h-5" />
@@ -575,7 +597,7 @@ export default function LandingPage() {
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
             <Link
-              href="/login"
+              href={isAuthenticated ? "/projects" : "/login"}
               className="px-10 py-4 bg-black text-white rounded-full text-lg font-bold hover:bg-gray-800 transition-all shadow-xl hover:shadow-2xl hover:-translate-y-1 active:scale-95 flex items-center justify-center"
             >
               免费开始创作

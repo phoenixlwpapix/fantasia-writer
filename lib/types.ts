@@ -66,6 +66,7 @@ export interface StoryChapter {
 }
 
 export interface StoryBible {
+  id?: string; // Add optional id field for database
   core: CoreConcept;
   characters: Character[];
   outline: ChapterOutline[];

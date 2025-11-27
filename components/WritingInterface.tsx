@@ -7,6 +7,7 @@ import {
   analyzeChapterContext,
 } from "../services/gemini";
 import { Button, Badge, TextArea } from "./ui'/UIComponents";
+import { saveChapter } from "../lib/supabase-db";
 import {
   ArrowLeft,
   ArrowRight,
@@ -163,6 +164,17 @@ export const WritingInterface: React.FC<WritingInterfaceProps> = ({
           c.outlineId === currentGeneratingId ? { ...c, metadata } : c
         )
       );
+
+      // Auto-save chapter and memory to database
+      const updatedChapters = chapters.map((c) =>
+        c.outlineId === currentGeneratingId ? { ...c, metadata } : c
+      );
+      const finalChapter = updatedChapters.find(
+        (c) => c.outlineId === currentGeneratingId
+      );
+      if (finalChapter && bible.id) {
+        await saveChapter(finalChapter, bible.id);
+      }
     } catch (e) {
       console.error("Failed to generate", e);
       setGeneratingId(null);

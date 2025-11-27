@@ -1,5 +1,28 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## 🎯 Fantasia - AI 驱动的小说创作平台
+
+一个基于 Next.js 和 Supabase 构建的现代化写作平台，帮助创作者通过 AI 技术高效生成和管理小说内容。
+
+### ✨ 核心功能
+
+- 🔐 **用户认证**：安全的用户登录和会话管理
+- 📚 **项目管理**：创建、编辑、删除个人书籍项目
+- 🤖 **AI 辅助创作**：
+  - 一键生成完整故事设定（世界观、角色、大纲）
+  - 智能生成章节内容
+  - 自动分析和存储章节记忆
+- 💾 **云端存储**：所有数据自动保存到 Supabase 数据库
+- 🎨 **优雅界面**：响应式设计，支持桌面和移动端
+
+### 🛠 技术栈
+
+- **前端**：Next.js 16 + React 19 + TypeScript
+- **样式**：Tailwind CSS 4.1
+- **数据库**：Supabase (PostgreSQL)
+- **AI 集成**：Google Gemini API
+- **认证**：Supabase Auth
+
 ## Getting Started
 
 First, run the development server:
@@ -18,19 +41,79 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 📁 项目结构
 
-## Learn More
+```
+fantasia-next/
+├── app/                    # Next.js App Router
+│   ├── api/               # API路由
+│   ├── login/             # 登录页面
+│   ├── projects/          # 项目管理页面
+│   └── page.tsx           # 首页
+├── components/            # React组件
+│   ├── SetupWizard.tsx    # 书籍设定向导
+│   ├── WritingInterface.tsx # 写作界面
+│   └── StoryProvider.tsx  # 全局状态管理
+├── lib/                   # 工具库
+│   ├── supabase-client.ts # Supabase客户端
+│   ├── supabase-db.ts     # 数据库操作
+│   └── types.ts           # TypeScript类型定义
+├── services/              # 外部服务
+│   └── gemini.ts          # Google Gemini API
+└── supabase-schema.sql    # 数据库schema
+```
 
-To learn more about Next.js, take a look at the following resources:
+## 🔧 核心特性
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### 数据库设计
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+基于《失落的玉簪》小说格式，设计了完整的数据库 schema：
 
-## Deploy on Vercel
+- **books**：书籍基本信息
+- **characters**：角色设定
+- **outlines**：章节大纲
+- **instructions**：写作指令
+- **chapters**：章节内容
+- **chapter_memories**：章节记忆分析
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### 自动保存机制
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- 书籍设定页面提供手动保存按钮
+- 一键生成灵感后自动保存设定
+- 章节生成后自动保存内容和记忆
+- 所有数据实时同步到 Supabase
+
+### AI 集成
+
+- Google Gemini API 驱动的智能创作
+- 支持完整故事生成和章节续写
+- 自动分析章节上下文和记忆点
+
+## 📚 使用指南
+
+1. **注册登录**：使用邮箱注册账户
+2. **创建项目**：点击"新建书籍"开始创作
+3. **设定世界**：通过向导设置故事核心概念
+4. **AI 生成**：使用一键生成或逐步构建故事
+5. **写作创作**：在写作界面生成和管理章节
+6. **导出作品**：支持 Markdown 格式导出
+
+## 🚀 部署
+
+### Vercel 部署（推荐）
+
+1. 连接 GitHub 仓库到 Vercel
+2. 配置环境变量
+3. 自动部署完成
+
+### 其他平台
+
+支持任何支持 Node.js 的云平台部署。
+
+## 🤝 贡献
+
+欢迎提交 Issue 和 Pull Request！
+
+## 📄 许可证
+
+MIT License
