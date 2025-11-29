@@ -466,15 +466,34 @@ export const saveChapter = async (
   chapter: StoryChapter,
   bookId: string
 ): Promise<string | null> => {
+  console.log("saveChapter called with:", {
+    chapterId: chapter.id,
+    outlineId: chapter.outlineId,
+    bookId,
+    title: chapter.title,
+    hasMetadata: !!chapter.metadata,
+  });
+
   // First, find existing chapter by outline_id to ensure correct id
-  const { data: existingChapter } = await supabase
+  const { data: existingChapter, error: findError } = await supabase
     .from("chapters")
     .select("id")
     .eq("book_id", bookId)
     .eq("outline_id", chapter.outlineId)
     .single();
 
+  if (findError && findError.code !== "PGRST116") {
+    // PGRST116 is "not found"
+    console.error("Error finding existing chapter:", findError);
+  }
+
   const chapterId = existingChapter?.id || chapter.id;
+  console.log(
+    "Using chapterId:",
+    chapterId,
+    "existingChapter:",
+    existingChapter
+  );
 
   const chapterData = {
     id: chapterId,
@@ -484,6 +503,8 @@ export const saveChapter = async (
     content: chapter.content,
     word_count: chapter.wordCount,
   };
+
+  console.log("Upserting chapter data:", chapterData);
 
   const { data, error } = await supabase
     .from("chapters")
@@ -497,6 +518,7 @@ export const saveChapter = async (
   }
 
   const savedChapterId = data.id;
+  console.log("Chapter saved with id:", savedChapterId);
 
   // Save chapter memory if exists
   if (chapter.metadata) {

@@ -113,6 +113,7 @@ export default function ProjectDashboard() {
     closeProject,
     userCredits,
     isAdmin,
+    user,
   } = useStory();
   const [projectToDelete, setProjectToDelete] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -242,6 +243,12 @@ export default function ProjectDashboard() {
 
           {isUserMenuOpen && (
             <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-border z-50 py-1 animate-in fade-in zoom-in-95 duration-200 origin-top-right">
+              <div className="px-4 py-3 border-b border-gray-100">
+                <p className="text-[10px] text-secondary uppercase tracking-wider mb-1 font-bold">
+                  注册邮箱
+                </p>
+                <p className="text-xs text-gray-500">{user?.email}</p>
+              </div>
               <div className="px-4 py-3 border-b border-gray-100">
                 <p className="text-[10px] text-secondary uppercase tracking-wider mb-1 font-bold">
                   可用点数

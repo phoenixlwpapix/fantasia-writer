@@ -40,8 +40,14 @@ interface WritingInterfaceProps {
 export const WritingInterface: React.FC<WritingInterfaceProps> = ({
   onEditSetup,
 }) => {
-  const { bible, chapters, setChapters, userCredits, setUserCredits } =
-    useStory();
+  const {
+    bible,
+    chapters,
+    setChapters,
+    userCredits,
+    setUserCredits,
+    currentProjectId,
+  } = useStory();
   const [generatingId, setGeneratingId] = useState<string | null>(null);
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(
@@ -80,6 +86,14 @@ export const WritingInterface: React.FC<WritingInterfaceProps> = ({
   const executeGeneration = async (customInstructions?: string) => {
     if (!selectedChapterId) return;
 
+    if (!bible.id) {
+      console.error(
+        "Cannot generate chapter: bible.id is undefined. Project may not be loaded properly."
+      );
+      alert("项目加载失败，请刷新页面重试。");
+      return;
+    }
+
     const chapterOutline = bible.outline.find(
       (c) => c.id === selectedChapterId
     );
@@ -106,17 +120,19 @@ export const WritingInterface: React.FC<WritingInterfaceProps> = ({
       // Initialize placeholder chapter content in state
       // If rewriting, we might want to keep the old content until the new stream starts,
       // or clear it. Here we clear it to show fresh stream.
-      setChapters((prev) => {
-        const exists = prev.find((c) => c.outlineId === currentGeneratingId);
-        const initialChapter: StoryChapter = {
-          id: exists ? exists.id : crypto.randomUUID(),
-          title: chapterOutline.title,
-          content: "", // Start empty for new stream
-          wordCount: 0,
-          outlineId: currentGeneratingId,
-          metadata: undefined, // Clear old metadata as we will re-analyze
-        };
+      const exists = chapters.find((c) => c.outlineId === currentGeneratingId);
+      const initialChapter: StoryChapter = {
+        id: exists ? exists.id : crypto.randomUUID(),
+        title: chapterOutline.title,
+        content: "", // Start empty for new stream
+        wordCount: 0,
+        outlineId: currentGeneratingId,
+        metadata: undefined, // Clear old metadata as we will re-analyze
+      };
 
+      let currentChapter = initialChapter;
+
+      setChapters((prev) => {
         if (exists) {
           return prev.map((c) =>
             c.outlineId === currentGeneratingId ? initialChapter : c
@@ -140,15 +156,17 @@ export const WritingInterface: React.FC<WritingInterfaceProps> = ({
         const text = c.text || "";
         fullContent += text;
 
+        currentChapter = {
+          ...currentChapter,
+          content: fullContent,
+          wordCount: fullContent.replace(/\s/g, "").length,
+        };
+
         // Update state incrementally
         setChapters((prev) =>
           prev.map((ch) => {
             if (ch.outlineId === currentGeneratingId) {
-              return {
-                ...ch,
-                content: fullContent,
-                wordCount: fullContent.replace(/\s/g, "").length,
-              };
+              return currentChapter;
             }
             return ch;
           })
@@ -173,27 +191,29 @@ export const WritingInterface: React.FC<WritingInterfaceProps> = ({
         chapterOutline.title
       );
 
+      currentChapter = {
+        ...currentChapter,
+        metadata,
+      };
+
+      // Update state with metadata
       setChapters((prev) =>
         prev.map((c) =>
-          c.outlineId === currentGeneratingId ? { ...c, metadata } : c
+          c.outlineId === currentGeneratingId ? currentChapter : c
         )
       );
 
       // Auto-save chapter and memory to database
-      const existingChapter = chapters.find(
-        (c) => c.outlineId === currentGeneratingId
-      );
-      const finalChapter = existingChapter
-        ? { ...existingChapter, metadata }
-        : null;
-      console.log("Final chapter to save:", finalChapter);
-      if (finalChapter && bible.id) {
+      const finalChapter = currentChapter;
+
+      if (bible.id) {
         const savedId = await saveChapter(finalChapter, bible.id);
         if (savedId) {
+          currentChapter = { ...currentChapter, id: savedId };
           // Update the chapter id in state to match database
           setChapters((prev) =>
             prev.map((c) =>
-              c.outlineId === currentGeneratingId ? { ...c, id: savedId } : c
+              c.outlineId === currentGeneratingId ? currentChapter : c
             )
           );
         }
@@ -248,9 +268,6 @@ export const WritingInterface: React.FC<WritingInterfaceProps> = ({
     (c) => c.outlineId === selectedChapterId
   );
   const currentOutline = bible.outline.find((c) => c.id === selectedChapterId);
-
-  // Debug logging for metadata
-  console.log("Current chapter metadata:", currentChapter?.metadata);
 
   // Navigation Logic
   const currentIndex = bible.outline.findIndex(

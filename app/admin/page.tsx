@@ -70,19 +70,21 @@ interface ChartDataPoint {
 // --- Components ---
 
 const StatCard = ({ title, value, subValue, icon: Icon, trend }: any) => (
-  <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between h-32">
+  <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between h-28 sm:h-32">
     <div className="flex justify-between items-start">
-      <div>
-        <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1">
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1 truncate">
           {title}
         </p>
-        <h3 className="text-3xl font-serif font-bold text-gray-900">{value}</h3>
+        <h3 className="text-2xl sm:text-3xl font-serif font-bold text-gray-900 truncate">
+          {value}
+        </h3>
       </div>
-      <div className="p-2 bg-gray-50 rounded-lg text-gray-600">
+      <div className="p-2 bg-gray-50 rounded-lg text-gray-600 ml-3 flex-shrink-0">
         <Icon className="w-5 h-5" />
       </div>
     </div>
-    <div className="flex items-center text-xs">
+    <div className="flex items-center text-xs mt-2">
       <span
         className={`font-bold ${
           trend > 0 ? "text-green-600" : "text-red-600"
@@ -92,7 +94,7 @@ const StatCard = ({ title, value, subValue, icon: Icon, trend }: any) => (
         {trend}%
         <TrendingUp className="w-3 h-3 ml-1" />
       </span>
-      <span className="text-gray-400 ml-2">{subValue}</span>
+      <span className="text-gray-400 ml-2 truncate">{subValue}</span>
     </div>
   </div>
 );
@@ -226,24 +228,28 @@ export default function AdminDashboard() {
             return (
               <div className="space-y-8 animate-in fade-in duration-500">
                 {/* Header */}
-                <div className="flex justify-between items-end">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
                   <div>
-                    <h2 className="text-2xl font-serif font-bold text-gray-900">
+                    <h2 className="text-xl sm:text-2xl font-serif font-bold text-gray-900">
                       数据概览
                     </h2>
                     <p className="text-gray-500 text-sm mt-1">
                       平台核心数据和增长趋势
                     </p>
                   </div>
-                  <div className="flex gap-3">
-                    <Button variant="outline" className="bg-white" size="sm">
+                  <div className="flex gap-3 w-full sm:w-auto">
+                    <Button
+                      variant="outline"
+                      className="bg-white flex-1 sm:flex-none"
+                      size="sm"
+                    >
                       导出报表
                     </Button>
                   </div>
                 </div>
 
                 {/* Stats Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
                   <StatCard
                     title="总用户数"
                     value={loading ? "..." : stats.totalUsers.toLocaleString()}
@@ -321,6 +327,9 @@ export default function AdminDashboard() {
                           axisLine={false}
                           tickLine={false}
                           tick={{ fill: "#9ca3af", fontSize: 12 }}
+                          tickFormatter={(value) =>
+                            `${(value / 1000).toFixed(0)}k`
+                          }
                         />
                         <Tooltip
                           contentStyle={{
@@ -328,6 +337,12 @@ export default function AdminDashboard() {
                             border: "none",
                             boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
                           }}
+                          formatter={(value: number, name: string) => [
+                            name === "words"
+                              ? `${(value / 1000).toFixed(1)}k 字`
+                              : `${value} 用户`,
+                            name === "words" ? "生成字数" : "用户数",
+                          ]}
                         />
                         <Area
                           type="monotone"
@@ -356,17 +371,21 @@ export default function AdminDashboard() {
             return (
               <div className="space-y-8 animate-in fade-in duration-500">
                 {/* Header */}
-                <div className="flex justify-between items-end">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
                   <div>
-                    <h2 className="text-2xl font-serif font-bold text-gray-900">
+                    <h2 className="text-xl sm:text-2xl font-serif font-bold text-gray-900">
                       用户管理
                     </h2>
                     <p className="text-gray-500 text-sm mt-1">
                       用户积分管理和账户操作
                     </p>
                   </div>
-                  <div className="flex gap-3">
-                    <Button size="sm" icon={<Plus className="w-4 h-4" />}>
+                  <div className="flex gap-3 w-full sm:w-auto">
+                    <Button
+                      size="sm"
+                      icon={<Plus className="w-4 h-4" />}
+                      className="flex-1 sm:flex-none"
+                    >
                       新增用户
                     </Button>
                   </div>
@@ -390,7 +409,8 @@ export default function AdminDashboard() {
                     </div>
                   </div>
 
-                  <div className="overflow-x-auto">
+                  {/* Desktop Table View */}
+                  <div className="hidden md:block overflow-x-auto">
                     <table className="w-full text-sm text-left">
                       <thead className="bg-gray-50 text-gray-500 font-medium uppercase tracking-wider text-xs">
                         <tr>
@@ -498,6 +518,117 @@ export default function AdminDashboard() {
                     </table>
                   </div>
 
+                  {/* Mobile Card View */}
+                  <div className="md:hidden space-y-4">
+                    {users
+                      .filter((u) => u.email.includes(searchTerm))
+                      .map((user) => (
+                        <div
+                          key={user.id}
+                          className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
+                        >
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                              {user.avatarUrl ? (
+                                <img
+                                  src={user.avatarUrl}
+                                  alt={user.fullName || user.email}
+                                  className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                                />
+                              ) : (
+                                <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center flex-shrink-0">
+                                  <span className="text-sm font-medium text-gray-600">
+                                    {(user.fullName || user.email)
+                                      .charAt(0)
+                                      .toUpperCase()}
+                                  </span>
+                                </div>
+                              )}
+                              <div className="min-w-0 flex-1">
+                                <div className="font-medium text-gray-900 truncate">
+                                  {user.fullName || "未设置姓名"}
+                                </div>
+                                <div className="text-sm text-gray-500 truncate">
+                                  {user.email}
+                                </div>
+                                <div className="text-xs text-gray-400 font-mono truncate">
+                                  {user.id}
+                                </div>
+                              </div>
+                            </div>
+                            <span
+                              className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 ${
+                                user.status === "active"
+                                  ? "bg-green-100 text-green-700"
+                                  : "bg-gray-100 text-gray-600"
+                              }`}
+                            >
+                              {user.status === "active" ? "正常" : "冻结"}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4 mb-3 text-sm">
+                            <div>
+                              <div className="text-gray-500 text-xs uppercase tracking-wider">
+                                注册时间
+                              </div>
+                              <div className="text-gray-900">
+                                {user.joinDate}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-gray-500 text-xs uppercase tracking-wider">
+                                当前积分
+                              </div>
+                              <div className="font-mono font-bold text-lg text-gray-900">
+                                {user.credits}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-gray-500 text-xs uppercase tracking-wider">
+                                书籍数量
+                              </div>
+                              <div className="text-gray-900 font-medium">
+                                {user.books} 本
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-gray-500 text-xs uppercase tracking-wider">
+                                生成字数
+                              </div>
+                              <div className="text-gray-900 font-medium">
+                                {(user.words / 1000).toFixed(1)}k 字
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex gap-2 pt-3 border-t border-gray-100">
+                            <button
+                              onClick={() => {
+                                setSelectedUser(user);
+                                setIsHistoryOpen(true);
+                              }}
+                              className="flex-1 flex items-center justify-center gap-2 p-2 text-gray-600 hover:text-black hover:bg-gray-50 rounded-md transition-colors border border-gray-200"
+                            >
+                              <History className="w-4 h-4" />
+                              记录
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedUser(user);
+                                setIsRechargeOpen(true);
+                                setRechargeAmount("");
+                              }}
+                              className="flex-1 flex items-center justify-center gap-2 p-2 bg-black text-white text-sm font-medium rounded-md hover:bg-gray-800 transition-all active:scale-95 shadow-sm"
+                            >
+                              <CreditCard className="w-4 h-4" />
+                              充值
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+
                   {/* Pagination (Mock) */}
                   <div className="p-4 border-t border-gray-200 flex justify-between items-center text-sm text-gray-500">
                     <span>
@@ -533,23 +664,25 @@ export default function AdminDashboard() {
 
       {/* --- Recharge Modal --- */}
       {isRechargeOpen && selectedUser && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all scale-100 m-4">
-            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-              <h3 className="font-bold text-gray-900">用户积分充值</h3>
-              <button onClick={() => setIsRechargeOpen(false)}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all scale-100 max-h-[90vh] overflow-y-auto">
+            <div className="px-4 sm:px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+              <h3 className="font-bold text-gray-900 text-base sm:text-lg">
+                用户积分充值
+              </h3>
+              <button onClick={() => setIsRechargeOpen(false)} className="p-1">
                 <X className="w-5 h-5 text-gray-400 hover:text-black" />
               </button>
             </div>
-            <div className="p-6 space-y-6">
-              <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
+            <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+              <div className="bg-gray-50 p-3 sm:p-4 rounded-lg border border-gray-100">
                 <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">
                   目标用户
                 </div>
-                <div className="font-medium text-gray-900">
+                <div className="font-medium text-gray-900 text-sm sm:text-base truncate">
                   {selectedUser.fullName || "未设置姓名"}
                 </div>
-                <div className="text-sm text-gray-600">
+                <div className="text-sm text-gray-600 truncate">
                   {selectedUser.email}
                 </div>
                 <div className="text-xs text-gray-400 mt-1">
@@ -561,12 +694,12 @@ export default function AdminDashboard() {
                 <label className="text-sm font-bold text-gray-700">
                   充值数量
                 </label>
-                <div className="grid grid-cols-4 gap-2 mb-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
                   {[10, 50, 100, 500].map((amount) => (
                     <button
                       key={amount}
                       onClick={() => setRechargeAmount(amount.toString())}
-                      className={`py-2 rounded-md text-sm border font-medium transition-all ${
+                      className={`py-2 px-3 rounded-md text-sm border font-medium transition-all ${
                         rechargeAmount === amount.toString()
                           ? "border-black bg-black text-white"
                           : "border-gray-200 hover:border-gray-400 text-gray-600"
@@ -582,7 +715,7 @@ export default function AdminDashboard() {
                     value={rechargeAmount}
                     onChange={(e) => setRechargeAmount(e.target.value)}
                     placeholder="或输入自定义数量"
-                    className="w-full border border-gray-300 rounded-lg px-4 py-3 text-lg font-mono outline-none focus:ring-2 focus:ring-black/10 focus:border-black transition-all"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-3 text-base sm:text-lg font-mono outline-none focus:ring-2 focus:ring-black/10 focus:border-black transition-all"
                   />
                   <span className="absolute right-4 top-3.5 text-gray-400 text-sm font-medium">
                     PTS
@@ -603,9 +736,9 @@ export default function AdminDashboard() {
                 />
               </div>
 
-              <div className="pt-2">
+              <div className="pt-2 space-y-3">
                 <Button
-                  className="w-full h-12 text-base shadow-lg shadow-black/10"
+                  className="w-full h-11 sm:h-12 text-sm sm:text-base shadow-lg shadow-black/10"
                   onClick={async () => {
                     if (!selectedUser || !rechargeAmount) return;
 
@@ -648,6 +781,13 @@ export default function AdminDashboard() {
                     "确认充值"
                   )}
                 </Button>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => setIsRechargeOpen(false)}
+                >
+                  取消
+                </Button>
               </div>
             </div>
           </div>
@@ -656,107 +796,183 @@ export default function AdminDashboard() {
 
       {/* --- History Modal --- */}
       {isHistoryOpen && selectedUser && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden transform transition-all scale-100 m-4 h-[600px] flex flex-col">
-            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
-              <div>
-                <h3 className="font-bold text-gray-900">积分变动记录</h3>
-                <p className="text-xs text-gray-500 mt-0.5">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden transform transition-all scale-100 max-h-[80vh] sm:h-[600px] flex flex-col">
+            <div className="px-4 sm:px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 shrink-0">
+              <div className="min-w-0 flex-1">
+                <h3 className="font-bold text-gray-900 text-base sm:text-lg truncate">
+                  积分变动记录
+                </h3>
+                <p className="text-xs text-gray-500 mt-0.5 truncate">
                   {selectedUser.fullName || "未设置姓名"} ({selectedUser.email})
                 </p>
               </div>
-              <button onClick={() => setIsHistoryOpen(false)}>
+              <button
+                onClick={() => setIsHistoryOpen(false)}
+                className="p-1 ml-2 flex-shrink-0"
+              >
                 <X className="w-5 h-5 text-gray-400 hover:text-black" />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-0">
-              <table className="w-full text-sm text-left">
-                <thead className="bg-white sticky top-0 z-10 border-b border-gray-100 shadow-sm">
-                  <tr>
-                    <th className="px-6 py-3 text-gray-500 font-medium text-xs uppercase">
-                      时间
-                    </th>
-                    <th className="px-6 py-3 text-gray-500 font-medium text-xs uppercase">
-                      类型
-                    </th>
-                    <th className="px-6 py-3 text-gray-500 font-medium text-xs uppercase">
-                      操作人
-                    </th>
-                    <th className="px-6 py-3 text-gray-500 font-medium text-xs uppercase text-right">
-                      变动额
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {/* Mock history data */}
-                  {[
-                    {
-                      id: 1,
-                      date: new Date(
-                        Date.now() - 86400000 * 2
-                      ).toLocaleString(),
-                      amount: 100,
-                      type: "Admin Grant",
-                      operator: "Admin",
-                    },
-                    {
-                      id: 2,
-                      date: new Date(
-                        Date.now() - 86400000 * 5
-                      ).toLocaleString(),
-                      amount: -20,
-                      type: "Consumption",
-                      operator: "System",
-                    },
-                  ].map((record) => (
-                    <tr key={record.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-gray-600 font-mono text-xs">
-                        {record.date}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+            <div className="flex-1 overflow-y-auto">
+              {/* Desktop Table View */}
+              <div className="hidden sm:block">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-white sticky top-0 z-10 border-b border-gray-100 shadow-sm">
+                    <tr>
+                      <th className="px-4 sm:px-6 py-3 text-gray-500 font-medium text-xs uppercase">
+                        时间
+                      </th>
+                      <th className="px-4 sm:px-6 py-3 text-gray-500 font-medium text-xs uppercase">
+                        类型
+                      </th>
+                      <th className="px-4 sm:px-6 py-3 text-gray-500 font-medium text-xs uppercase">
+                        操作人
+                      </th>
+                      <th className="px-4 sm:px-6 py-3 text-gray-500 font-medium text-xs uppercase text-right">
+                        变动额
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {/* Mock history data */}
+                    {[
+                      {
+                        id: 1,
+                        date: new Date(
+                          Date.now() - 86400000 * 2
+                        ).toLocaleString(),
+                        amount: 100,
+                        type: "Admin Grant",
+                        operator: "Admin",
+                      },
+                      {
+                        id: 2,
+                        date: new Date(
+                          Date.now() - 86400000 * 5
+                        ).toLocaleString(),
+                        amount: -20,
+                        type: "Consumption",
+                        operator: "System",
+                      },
+                    ].map((record) => (
+                      <tr key={record.id} className="hover:bg-gray-50">
+                        <td className="px-4 sm:px-6 py-4 text-gray-600 font-mono text-xs">
+                          {record.date}
+                        </td>
+                        <td className="px-4 sm:px-6 py-4">
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                              record.amount > 0
+                                ? "bg-green-50 text-green-700"
+                                : "bg-orange-50 text-orange-700"
+                            }`}
+                          >
+                            {record.type}
+                          </span>
+                        </td>
+                        <td className="px-4 sm:px-6 py-4 text-gray-600">
+                          {record.operator}
+                        </td>
+                        <td
+                          className={`px-4 sm:px-6 py-4 text-right font-mono font-bold ${
                             record.amount > 0
-                              ? "bg-green-50 text-green-700"
-                              : "bg-orange-50 text-orange-700"
+                              ? "text-green-600"
+                              : "text-gray-900"
                           }`}
                         >
-                          {record.type}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-gray-600">
-                        {record.operator}
-                      </td>
-                      <td
-                        className={`px-6 py-4 text-right font-mono font-bold ${
-                          record.amount > 0 ? "text-green-600" : "text-gray-900"
-                        }`}
-                      >
-                        {record.amount > 0 ? "+" : ""}
-                        {record.amount}
-                      </td>
-                    </tr>
+                          {record.amount > 0 ? "+" : ""}
+                          {record.amount}
+                        </td>
+                      </tr>
+                    ))}
+                    {/* Mock fill */}
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <tr key={`mock_${i}`} className="hover:bg-gray-50">
+                        <td className="px-4 sm:px-6 py-4 text-gray-600 font-mono text-xs">
+                          2024-02-{28 - i} 10:00
+                        </td>
+                        <td className="px-4 sm:px-6 py-4">
+                          <span className="bg-orange-50 text-orange-700 px-2 py-0.5 rounded text-xs">
+                            Consumption
+                          </span>
+                        </td>
+                        <td className="px-4 sm:px-6 py-4 text-gray-600">
+                          System
+                        </td>
+                        <td className="px-4 sm:px-6 py-4 text-right font-mono font-bold text-gray-900">
+                          -5
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="sm:hidden divide-y divide-gray-100">
+                {[
+                  {
+                    id: "1",
+                    date: new Date(Date.now() - 86400000 * 2).toLocaleString(),
+                    amount: 100,
+                    type: "Admin Grant",
+                    operator: "Admin",
+                  },
+                  {
+                    id: "2",
+                    date: new Date(Date.now() - 86400000 * 5).toLocaleString(),
+                    amount: -20,
+                    type: "Consumption",
+                    operator: "System",
+                  },
+                ]
+                  .concat(
+                    Array.from({ length: 5 }).map((_, i) => ({
+                      id: `mock_${i}`,
+                      date: `2024-02-${28 - i} 10:00`,
+                      amount: -5,
+                      type: "Consumption",
+                      operator: "System",
+                    }))
+                  )
+                  .map((record) => (
+                    <div key={record.id} className="p-4 hover:bg-gray-50">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs text-gray-400 font-mono mb-1">
+                            {record.date}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                                record.amount > 0
+                                  ? "bg-green-50 text-green-700"
+                                  : "bg-orange-50 text-orange-700"
+                              }`}
+                            >
+                              {record.type}
+                            </span>
+                            <span className="text-sm text-gray-600">
+                              {record.operator}
+                            </span>
+                          </div>
+                        </div>
+                        <div
+                          className={`text-right font-mono font-bold text-lg ${
+                            record.amount > 0
+                              ? "text-green-600"
+                              : "text-gray-900"
+                          }`}
+                        >
+                          {record.amount > 0 ? "+" : ""}
+                          {record.amount}
+                        </div>
+                      </div>
+                    </div>
                   ))}
-                  {/* Mock fill */}
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <tr key={`mock_${i}`} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-gray-600 font-mono text-xs">
-                        2024-02-{28 - i} 10:00
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="bg-orange-50 text-orange-700 px-2 py-0.5 rounded text-xs">
-                          Consumption
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-gray-600">System</td>
-                      <td className="px-6 py-4 text-right font-mono font-bold text-gray-900">
-                        -5
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              </div>
             </div>
 
             <div className="p-4 border-t border-gray-100 bg-gray-50 text-right shrink-0">
@@ -764,6 +980,7 @@ export default function AdminDashboard() {
                 variant="outline"
                 size="sm"
                 onClick={() => setIsHistoryOpen(false)}
+                className="w-full sm:w-auto"
               >
                 关闭
               </Button>

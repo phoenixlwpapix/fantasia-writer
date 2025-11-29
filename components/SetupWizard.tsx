@@ -310,20 +310,20 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onFinish }) => {
               />
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Input
-                  label="主题 (必填)"
+                  label="主题"
                   placeholder="例如：记忆与身份、科技与人性"
                   value={bible.core.theme}
                   onChange={(e) => updateCore({ theme: e.target.value })}
                 />
                 <Input
-                  label="类型 (必填)"
+                  label="类型"
                   placeholder="例如：悬疑推理、赛博朋克"
                   value={bible.core.genre}
                   onChange={(e) => updateCore({ genre: e.target.value })}
                 />
               </div>
               <TextArea
-                label="一句话梗概 (50字内)"
+                label="一句话梗概"
                 placeholder="包含主角、冲突和核心悬念..."
                 value={bible.core.logline}
                 onChange={(e) => updateCore({ logline: e.target.value })}

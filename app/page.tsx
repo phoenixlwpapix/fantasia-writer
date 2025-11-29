@@ -193,18 +193,18 @@ export default function LandingPage() {
         </div>
         <div className="flex items-center gap-6">
           <div className="hidden md:flex gap-6 text-sm font-medium text-secondary">
-            <a
+            <Link
               href="#features"
               className="hover:text-primary transition-colors"
             >
               功能
-            </a>
-            <a
+            </Link>
+            <Link
               href="#use-cases"
               className="hover:text-primary transition-colors"
             >
               适用人群
-            </a>
+            </Link>
             <Link
               href="/pricing"
               className="hover:text-primary transition-colors"
@@ -550,7 +550,7 @@ export default function LandingPage() {
                 <Star className="w-4 h-4 fill-current" />
               </div>
               <p className="font-serif italic text-lg mb-6 text-primary">
-                "作为一个独立游戏开发者，我用它在一个周末内完成了整个游戏的背景故事和物品描述。效率提升了十倍。"
+                &quot;作为一个独立游戏开发者，我用它在一个周末内完成了整个游戏的背景故事和物品描述。效率提升了十倍。&quot;
               </p>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center font-bold text-gray-500">
@@ -571,7 +571,7 @@ export default function LandingPage() {
                 <Star className="w-4 h-4 fill-current" />
               </div>
               <p className="font-serif italic text-lg mb-6 text-primary">
-                "它不是在替你写，而是在陪你写。那种能够随时查看世界观并获得连贯建议的感觉太棒了。"
+                &quot;它不是在替你写，而是在陪你写。那种能够随时查看世界观并获得连贯建议的感觉太棒了。&quot;
               </p>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center font-bold text-gray-500">
