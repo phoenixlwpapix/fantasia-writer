@@ -205,9 +205,12 @@ export default function LandingPage() {
             >
               适用人群
             </a>
-            <a href="#pricing" className="hover:text-primary transition-colors">
+            <Link
+              href="/pricing"
+              className="hover:text-primary transition-colors"
+            >
               定价
-            </a>
+            </Link>
           </div>
           <Link
             href={isAuthenticated ? "/projects" : "/login"}
@@ -602,9 +605,12 @@ export default function LandingPage() {
             >
               免费开始创作
             </Link>
-            <button className="px-10 py-4 bg-white text-primary border border-gray-200 rounded-full text-lg font-bold hover:bg-gray-50 transition-all">
+            <Link
+              href="/pricing"
+              className="px-10 py-4 bg-white text-primary border border-gray-200 rounded-full text-lg font-bold hover:bg-gray-50 transition-all"
+            >
               查看定价方案
-            </button>
+            </Link>
           </div>
         </div>
       </section>

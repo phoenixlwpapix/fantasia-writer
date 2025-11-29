@@ -14,13 +14,12 @@ export const createServerComponentClient = () =>
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() {
-          // @ts-ignore
-          const cookieHeader = headers().get("cookie");
+        async getAll() {
+          const cookieHeader = (await headers()).get("cookie") ?? "";
           if (!cookieHeader) return [];
           return parseCookieHeader(cookieHeader).map(({ name, value }) => ({
             name,
-            value: value || "",
+            value: value ?? "",
           }));
         },
         setAll: () => {

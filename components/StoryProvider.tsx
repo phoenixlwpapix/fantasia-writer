@@ -21,6 +21,7 @@ import {
   updateBookSpineColor,
   initializeUserCredits,
   getUserCredits,
+  checkIsAdmin,
 } from "../lib/supabase-db";
 import { createClient } from "../lib/supabase-client";
 
@@ -390,6 +391,9 @@ interface StoryContextType {
   userCredits: number;
   setUserCredits: React.Dispatch<React.SetStateAction<number>>;
 
+  // Admin Status
+  isAdmin: boolean;
+
   // Project Management
   projects: ProjectMetadata[];
   loadingProjects: boolean;
@@ -425,6 +429,9 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({
   // User Credits State
   const [userCredits, setUserCredits] = useState<number>(0);
 
+  // Admin Status State
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
+
   // Load user projects from Supabase on mount and auth changes
   useEffect(() => {
     const loadProjects = async () => {
@@ -447,6 +454,10 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({
           if (credits) {
             setUserCredits(credits.credits);
           }
+
+          // Load admin status
+          const adminStatus = await checkIsAdmin();
+          setIsAdmin(adminStatus);
         } else {
           setProjects([]);
           setUserCredits(0);
@@ -584,6 +595,7 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({
         setChapters,
         userCredits,
         setUserCredits,
+        isAdmin,
         projects,
         loadingProjects,
         loadingProject,

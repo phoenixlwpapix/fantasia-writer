@@ -65,15 +65,15 @@ export default function AdminLayout({
 
         <nav className="flex-1 p-4 space-y-2 mt-4">
           <Link
-            href="/admin"
+            href="/admin?tab=overview"
             className="flex items-center gap-3 px-4 py-3 bg-white/10 text-white rounded-lg font-medium transition-colors"
           >
             <LayoutDashboard className="w-5 h-5" />
             数据概览
           </Link>
           <Link
-            href="/admin/users"
-            className="flex items-center gap-3 px-4 py-3 text-white rounded-lg font-medium transition-colors hover:bg-white/10"
+            href="/admin?tab=users"
+            className="flex items-center gap-3 px-4 py-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg font-medium transition-colors"
           >
             <Users className="w-5 h-5" />
             用户管理

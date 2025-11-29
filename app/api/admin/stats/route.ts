@@ -25,39 +25,29 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
-    // Get total users count (users who have created books)
-    const { data: usersData, error: usersError } = await supabase
-      .from("books")
-      .select("user_id");
+    // Get all stats from profiles table in a single query
+    const { data: profilesData, error: profilesError } = await supabase
+      .from("profiles")
+      .select("books_count, words_count");
 
-    if (usersError) {
-      console.error("Error getting users:", usersError);
+    if (profilesError) {
+      console.error("Error getting profiles data:", profilesError);
+      return NextResponse.json(
+        { error: `Failed to get profiles data: ${profilesError.message}` },
+        { status: 500 }
+      );
     }
 
-    const totalUsers =
-      new Set(usersData?.map((book) => book.user_id)).size || 0;
-
-    // Get total books count
-    const { count: totalBooks, error: booksError } = await supabase
-      .from("books")
-      .select("*", { count: "exact", head: true });
-
-    if (booksError) {
-      console.error("Error counting books:", booksError);
-    }
-
-    // Get total words count
-    const { data: chaptersData, error: chaptersError } = await supabase
-      .from("chapters")
-      .select("word_count");
-
-    if (chaptersError) {
-      console.error("Error getting chapters:", chaptersError);
-    }
-
+    // Calculate stats from profiles data
+    const totalUsers = profilesData?.length || 0;
+    const totalBooks =
+      profilesData?.reduce(
+        (sum, profile) => sum + (profile.books_count || 0),
+        0
+      ) || 0;
     const totalWords =
-      chaptersData?.reduce(
-        (sum, chapter) => sum + (chapter.word_count || 0),
+      profilesData?.reduce(
+        (sum, profile) => sum + (profile.words_count || 0),
         0
       ) || 0;
 

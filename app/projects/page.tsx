@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useStory } from "../../components/StoryProvider";
 import { Button, Badge } from "../../components/ui'/UIComponents";
 import { createClient } from "@/lib/supabase-client";
-import { getUserCredits, checkIsAdmin } from "../../lib/supabase-db";
+import { getUserCredits } from "../../lib/supabase-db";
 import Loading from "../loading";
 import {
   Plus,
@@ -112,24 +112,17 @@ export default function ProjectDashboard() {
     updateProjectMetadata,
     closeProject,
     userCredits,
+    isAdmin,
   } = useStory();
   const [projectToDelete, setProjectToDelete] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterColor, setFilterColor] = useState<string | null>(null);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [openSettingsId, setOpenSettingsId] = useState<string | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
 
   // Clear current project state when entering dashboard to prevent overwrites
   useEffect(() => {
     closeProject();
-    // Check if user is admin
-    checkIsAdmin()
-      .then(setIsAdmin)
-      .catch((error) => {
-        console.error("Failed to check admin status:", error);
-        setIsAdmin(false);
-      });
   }, []);
 
   const handleConfirmDelete = () => {
