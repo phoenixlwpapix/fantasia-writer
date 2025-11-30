@@ -8,7 +8,7 @@ import {
   GenerationType,
   GENERATION_COSTS,
 } from "../lib/types";
-import { Button, Input, TextArea, Card } from "./ui'/UIComponents";
+import { Button, Input, TextArea, Card } from "./ui/UIComponents";
 import { createClient } from "../lib/supabase/client";
 import { CreditConfirmationModal } from "./CreditConfirmationModal";
 import { deductUserCredits, updateBook } from "../lib/supabase-db";

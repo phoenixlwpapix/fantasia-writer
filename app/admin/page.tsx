@@ -29,13 +29,9 @@ import {
   AreaChart,
   Area,
 } from "recharts";
-import { Button, Input } from "../../components/ui'/UIComponents";
+import { Button, Input } from "../../components/ui/UIComponents";
 import { createClient } from "../../lib/supabase/client";
-import {
-  getUserCredits,
-  addUserCredits,
-  loadUserBooks,
-} from "../../lib/supabase-db";
+import { addUserCredits } from "../../lib/supabase-db";
 
 // --- Real Data Types ---
 

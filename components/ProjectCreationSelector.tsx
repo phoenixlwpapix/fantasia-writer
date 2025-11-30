@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import Link from "next/link";
-import { Button } from "./ui'/UIComponents";
+import { Button } from "./ui/UIComponents";
 import { generateFullStoryBible } from "../services/gemini";
 import { CreditConfirmationModal } from "./CreditConfirmationModal";
 import { deductUserCredits } from "../lib/supabase-db";

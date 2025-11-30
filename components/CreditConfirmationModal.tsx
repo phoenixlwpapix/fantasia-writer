@@ -1,6 +1,6 @@
 import React from "react";
 import { X, Coins } from "lucide-react";
-import { Button } from "./ui'/UIComponents";
+import { Button } from "./ui/UIComponents";
 
 interface CreditModalProps {
   isOpen: boolean;

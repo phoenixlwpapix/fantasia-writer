@@ -6,7 +6,7 @@ import {
   generateChapterStream,
   analyzeChapterContext,
 } from "../services/gemini";
-import { Button, Badge, TextArea } from "./ui'/UIComponents";
+import { Button, Badge, TextArea } from "./ui/UIComponents";
 import {
   saveChapter,
   getUserCredits,

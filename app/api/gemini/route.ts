@@ -1,4 +1,4 @@
-import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import {
