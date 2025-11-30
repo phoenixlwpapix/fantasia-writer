@@ -1,4 +1,3 @@
-import { createClient } from "./supabase-client";
 import {
   StoryBible,
   StoryChapter,
@@ -6,8 +5,7 @@ import {
   UserCredits,
   NEW_USER_CREDITS,
 } from "./types";
-
-const supabase = createClient();
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 // Database types
 export interface BookRecord {
@@ -84,7 +82,10 @@ export interface ChapterMemoryRecord {
 }
 
 // Book operations
-export const createBook = async (bible: StoryBible): Promise<string | null> => {
+export const createBook = async (
+  supabase: SupabaseClient,
+  bible: StoryBible
+): Promise<string | null> => {
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -168,6 +169,7 @@ export const createBook = async (bible: StoryBible): Promise<string | null> => {
 };
 
 export const updateBook = async (
+  supabase: SupabaseClient,
   bookId: string,
   bible: StoryBible
 ): Promise<boolean> => {
@@ -282,7 +284,10 @@ export const updateBook = async (
   return true;
 };
 
-export const loadBook = async (bookId: string): Promise<StoryBible | null> => {
+export const loadBook = async (
+  supabase: SupabaseClient,
+  bookId: string
+): Promise<StoryBible | null> => {
   // Load book
   const { data: book, error: bookError } = await supabase
     .from("books")
@@ -378,7 +383,9 @@ export const loadBook = async (bookId: string): Promise<StoryBible | null> => {
   return bible;
 };
 
-export const loadUserBooks = async (): Promise<ProjectMetadata[]> => {
+export const loadUserBooks = async (
+  supabase: SupabaseClient
+): Promise<ProjectMetadata[]> => {
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -434,6 +441,7 @@ export const loadUserBooks = async (): Promise<ProjectMetadata[]> => {
 };
 
 export const updateBookSpineColor = async (
+  supabase: SupabaseClient,
   bookId: string,
   spineColor: string
 ): Promise<boolean> => {
@@ -450,7 +458,10 @@ export const updateBookSpineColor = async (
   return true;
 };
 
-export const deleteBook = async (bookId: string): Promise<boolean> => {
+export const deleteBook = async (
+  supabase: SupabaseClient,
+  bookId: string
+): Promise<boolean> => {
   const { error } = await supabase.from("books").delete().eq("id", bookId);
 
   if (error) {
@@ -463,6 +474,7 @@ export const deleteBook = async (bookId: string): Promise<boolean> => {
 
 // Chapter operations
 export const saveChapter = async (
+  supabase: SupabaseClient,
   chapter: StoryChapter,
   bookId: string
 ): Promise<string | null> => {
@@ -549,7 +561,10 @@ export const saveChapter = async (
   return savedChapterId;
 };
 
-export const loadChapters = async (bookId: string): Promise<StoryChapter[]> => {
+export const loadChapters = async (
+  supabase: SupabaseClient,
+  bookId: string
+): Promise<StoryChapter[]> => {
   const { data: chapters, error } = await supabase
     .from("chapters")
     .select("*")
@@ -608,7 +623,9 @@ export const loadChapters = async (bookId: string): Promise<StoryChapter[]> => {
 };
 
 // User credits operations
-export const getUserCredits = async (): Promise<UserCredits | null> => {
+export const getUserCredits = async (
+  supabase: SupabaseClient
+): Promise<UserCredits | null> => {
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -628,14 +645,16 @@ export const getUserCredits = async (): Promise<UserCredits | null> => {
   return data;
 };
 
-export const initializeUserCredits = async (): Promise<boolean> => {
+export const initializeUserCredits = async (
+  supabase: SupabaseClient
+): Promise<boolean> => {
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return false;
 
   // Check if user already has credits
-  const existingCredits = await getUserCredits();
+  const existingCredits = await getUserCredits(supabase);
   if (existingCredits) return true;
 
   // Initialize with new user credits
@@ -652,13 +671,16 @@ export const initializeUserCredits = async (): Promise<boolean> => {
   return true;
 };
 
-export const deductUserCredits = async (amount: number): Promise<boolean> => {
+export const deductUserCredits = async (
+  supabase: SupabaseClient,
+  amount: number
+): Promise<boolean> => {
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return false;
 
-  const currentCredits = await getUserCredits();
+  const currentCredits = await getUserCredits(supabase);
   if (!currentCredits || currentCredits.credits < amount) {
     return false; // Insufficient credits
   }
@@ -676,13 +698,16 @@ export const deductUserCredits = async (amount: number): Promise<boolean> => {
   return true;
 };
 
-export const addUserCredits = async (amount: number): Promise<boolean> => {
+export const addUserCredits = async (
+  supabase: SupabaseClient,
+  amount: number
+): Promise<boolean> => {
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return false;
 
-  const currentCredits = await getUserCredits();
+  const currentCredits = await getUserCredits(supabase);
   if (!currentCredits) return false;
 
   const { error } = await supabase
@@ -699,7 +724,9 @@ export const addUserCredits = async (amount: number): Promise<boolean> => {
 };
 
 // Admin operations
-export const checkIsAdmin = async (): Promise<boolean> => {
+export const checkIsAdmin = async (
+  supabase: SupabaseClient
+): Promise<boolean> => {
   try {
     const {
       data: { user },
@@ -742,7 +769,9 @@ export const checkIsAdmin = async (): Promise<boolean> => {
   }
 };
 
-export const getAdminUsers = async (): Promise<
+export const getAdminUsers = async (
+  supabase: SupabaseClient
+): Promise<
   { id: string; user_id: string; email: string; created_at: string }[]
 > => {
   const { data, error } = await supabase
@@ -758,7 +787,10 @@ export const getAdminUsers = async (): Promise<
   return data || [];
 };
 
-export const addAdminUser = async (email: string): Promise<boolean> => {
+export const addAdminUser = async (
+  supabase: SupabaseClient,
+  email: string
+): Promise<boolean> => {
   // First get user by email from auth.users
   const { data: authUser, error: authError } = await supabase
     .from("auth.users")
@@ -784,7 +816,10 @@ export const addAdminUser = async (email: string): Promise<boolean> => {
   return true;
 };
 
-export const removeAdminUser = async (userId: string): Promise<boolean> => {
+export const removeAdminUser = async (
+  supabase: SupabaseClient,
+  userId: string
+): Promise<boolean> => {
   const { error } = await supabase
     .from("admin_users")
     .delete()

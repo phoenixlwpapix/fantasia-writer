@@ -12,6 +12,7 @@ import {
   getUserCredits,
   deductUserCredits,
 } from "../lib/supabase-db";
+import { createClient } from "../lib/supabase/client";
 import { CreditConfirmationModal } from "./CreditConfirmationModal";
 import {
   ArrowLeft,
@@ -207,7 +208,8 @@ export const WritingInterface: React.FC<WritingInterfaceProps> = ({
       const finalChapter = currentChapter;
 
       if (bible.id) {
-        const savedId = await saveChapter(finalChapter, bible.id);
+        const supabase = createClient();
+        const savedId = await saveChapter(supabase, finalChapter, bible.id);
         if (savedId) {
           currentChapter = { ...currentChapter, id: savedId };
           // Update the chapter id in state to match database
@@ -252,7 +254,8 @@ export const WritingInterface: React.FC<WritingInterfaceProps> = ({
     if (!pendingGenerationType) return;
 
     const cost = GENERATION_COSTS[pendingGenerationType];
-    const success = await deductUserCredits(cost);
+    const supabase = createClient();
+    const success = await deductUserCredits(supabase, cost);
     if (success) {
       setUserCredits((prev) => prev - cost);
       await executeGeneration(pendingCustomInstructions);

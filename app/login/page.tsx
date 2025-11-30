@@ -12,7 +12,7 @@ import {
   Github,
 } from "lucide-react";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase-client";
+import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
   const router = useRouter();

@@ -4,6 +4,7 @@ import { Button } from "./ui'/UIComponents";
 import { generateFullStoryBible } from "../services/gemini";
 import { CreditConfirmationModal } from "./CreditConfirmationModal";
 import { deductUserCredits } from "../lib/supabase-db";
+import { createClient } from "../lib/supabase/client";
 import { GenerationType, GENERATION_COSTS } from "../lib/types";
 import { useStory } from "./StoryProvider";
 import {
@@ -58,7 +59,8 @@ export const ProjectCreationSelector: React.FC<
     if (!pendingGenerationData) return;
 
     const cost = GENERATION_COSTS[GenerationType.COMPLETE_SETUP];
-    const success = await deductUserCredits(cost);
+    const supabase = createClient();
+    const success = await deductUserCredits(supabase, cost);
     if (success) {
       setUserCredits((prev) => prev - cost);
       await executeGeneration(pendingGenerationData);

@@ -9,7 +9,7 @@ import {
   GENERATION_COSTS,
 } from "../lib/types";
 import { Button, Input, TextArea, Card } from "./ui'/UIComponents";
-import { createClient } from "../lib/supabase-client";
+import { createClient } from "../lib/supabase/client";
 import { CreditConfirmationModal } from "./CreditConfirmationModal";
 import { deductUserCredits, updateBook } from "../lib/supabase-db";
 import {
@@ -87,7 +87,8 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onFinish }) => {
     if (!pendingStep) return;
 
     const cost = GENERATION_COSTS[GenerationType.SINGLE_PAGE_SETUP];
-    const success = await deductUserCredits(cost);
+    const supabase = createClient();
+    const success = await deductUserCredits(supabase, cost);
     if (success) {
       setUserCredits((prev) => prev - cost);
       await executeGeneration(pendingStep);
@@ -124,7 +125,8 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onFinish }) => {
 
         // 立即保存大纲到数据库
         if (currentProjectId) {
-          await updateBook(currentProjectId, {
+          const supabase = createClient();
+          await updateBook(supabase, currentProjectId, {
             ...bible,
             outline: formattedOutline,
           });
@@ -186,7 +188,8 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onFinish }) => {
 
       // Update database if project exists
       if (currentProjectId) {
-        await updateBook(currentProjectId, clearedBible);
+        const supabase = createClient();
+        await updateBook(supabase, currentProjectId, clearedBible);
       }
     } finally {
       setIsClearing(false);

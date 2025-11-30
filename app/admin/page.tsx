@@ -30,7 +30,7 @@ import {
   Area,
 } from "recharts";
 import { Button, Input } from "../../components/ui'/UIComponents";
-import { createClient } from "../../lib/supabase-client";
+import { createClient } from "../../lib/supabase/client";
 import {
   getUserCredits,
   addUserCredits,
@@ -744,7 +744,9 @@ export default function AdminDashboard() {
 
                     try {
                       setRechargeLoading(true);
+                      const supabase = createClient();
                       const success = await addUserCredits(
+                        supabase,
                         parseInt(rechargeAmount)
                       );
                       if (success) {

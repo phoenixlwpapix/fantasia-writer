@@ -5,8 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useStory } from "../../components/StoryProvider";
 import { Button, Badge } from "../../components/ui'/UIComponents";
-import { createClient } from "@/lib/supabase-client";
-import { getUserCredits } from "../../lib/supabase-db";
+import { createClient } from "@/lib/supabase/client";
 import Loading from "../loading";
 import {
   Plus,

@@ -4,6 +4,7 @@ import React from "react";
 import { useRouter } from "next/navigation";
 import { ProjectCreationSelector } from "../../../components/ProjectCreationSelector";
 import { createBook } from "../../../lib/supabase-db";
+import { createClient } from "../../../lib/supabase/client";
 import { StoryBible } from "../../../lib/types";
 
 const DEFAULT_BIBLE: StoryBible = {
@@ -45,14 +46,16 @@ export default function NewProjectPage() {
   const router = useRouter();
 
   const handleManualStart = async () => {
-    const bookId = await createBook(DEFAULT_BIBLE);
+    const supabase = createClient();
+    const bookId = await createBook(supabase, DEFAULT_BIBLE);
     if (bookId) {
       router.push(`/projects/${bookId}`);
     }
   };
 
   const handleAIGenerate = async (bible: StoryBible) => {
-    const bookId = await createBook(bible);
+    const supabase = createClient();
+    const bookId = await createBook(supabase, bible);
     if (bookId) {
       router.push(`/projects/${bookId}`);
     }

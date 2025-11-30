@@ -23,7 +23,7 @@ import {
   getUserCredits,
   checkIsAdmin,
 } from "../lib/supabase-db";
-import { createClient } from "../lib/supabase-client";
+import { createClient } from "@/lib/supabase/client";
 
 const DEFAULT_BIBLE: StoryBible = {
   core: {
@@ -131,20 +131,20 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({
 
         if (user) {
           setUser(user);
-          const userProjects = await loadUserBooks();
+          const userProjects = await loadUserBooks(supabase);
           setProjects(userProjects);
 
           // Initialize user credits if not exists
-          await initializeUserCredits();
+          await initializeUserCredits(supabase);
 
           // Load user credits
-          const credits = await getUserCredits();
+          const credits = await getUserCredits(supabase);
           if (credits) {
             setUserCredits(credits.credits);
           }
 
           // Load admin status
-          const adminStatus = await checkIsAdmin();
+          const adminStatus = await checkIsAdmin(supabase);
           setIsAdmin(adminStatus);
         } else {
           setUser(null);
@@ -158,19 +158,9 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({
 
     loadProjects();
 
-    // Listen for auth state changes to reload data when user logs in/out
-    const supabase = createClient();
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === "SIGNED_IN" || event === "SIGNED_OUT") {
-        loadProjects();
-      }
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
+    // ❌ Removed onAuthStateChange listener to prevent unnecessary reloads
+    // when switching browser tabs (Supabase triggers SIGNED_IN on focus)
+    // Auth state changes are handled by component re-mounting on route changes
   }, []);
 
   // Auto-save current project to Supabase
@@ -178,20 +168,21 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({
     if (!currentProjectId) return;
 
     const autoSave = async () => {
+      const supabase = createClient();
       // Save book data
-      await updateBook(currentProjectId, bible);
+      await updateBook(supabase, currentProjectId, bible);
 
       // Save only completed chapters (those with metadata, indicating analysis is done)
       const completedChapters = chapters.filter((chapter) => chapter.metadata);
       for (const chapter of completedChapters) {
-        const savedId = await saveChapter(chapter, currentProjectId);
+        const savedId = await saveChapter(supabase, chapter, currentProjectId);
         if (!savedId) {
           console.error("Failed to save chapter:", chapter.title);
         }
       }
 
       // Refresh projects list to update metadata
-      const updatedProjects = await loadUserBooks();
+      const updatedProjects = await loadUserBooks(supabase);
       setProjects(updatedProjects);
     };
 
@@ -211,10 +202,11 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({
   const loadProject = async (id: string) => {
     setLoadingProject(true);
     try {
-      const loadedBible = await loadBook(id);
+      const supabase = createClient();
+      const loadedBible = await loadBook(supabase, id);
       if (loadedBible) {
         setBible(loadedBible);
-        const loadedChapters = await loadChapters(id);
+        const loadedChapters = await loadChapters(supabase, id);
         setChapters(loadedChapters);
         setCurrentProjectId(id);
       } else {
@@ -232,7 +224,8 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({
   };
 
   const deleteProject = async (id: string) => {
-    const success = await deleteBook(id);
+    const supabase = createClient();
+    const success = await deleteBook(supabase, id);
     if (success) {
       const newProjects = projects.filter((p) => p.id !== id);
       setProjects(newProjects);
@@ -267,7 +260,8 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({
 
       // Save spine color to database if provided
       if (data.spineColor) {
-        await updateBookSpineColor(id, data.spineColor);
+        const supabase = createClient();
+        await updateBookSpineColor(supabase, id, data.spineColor);
       }
     },
     []

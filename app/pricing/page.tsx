@@ -15,7 +15,7 @@ import {
   ShieldCheck,
   PenTool,
 } from "lucide-react";
-import { Badge } from "../../components/ui/UIComponents";
+import { Badge } from "../../components/ui'/UIComponents";
 
 export default function PricingPage() {
   return (

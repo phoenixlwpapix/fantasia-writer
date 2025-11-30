@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { checkIsAdmin } from "../../lib/supabase-db";
+import { createClient } from "../../lib/supabase/client";
 import {
   LayoutDashboard,
   Users,
@@ -29,7 +30,8 @@ export default function AdminLayout({
   const currentTab = searchParams.get("tab") || "overview";
 
   useEffect(() => {
-    checkIsAdmin().then((admin) => {
+    const supabase = createClient();
+    checkIsAdmin(supabase).then((admin) => {
       if (!admin) {
         router.push("/");
       } else {
