@@ -40,7 +40,9 @@ export default function LoginPage() {
           : error.message
       );
     } else {
-      router.push("/projects");
+      // ✅ 强制浏览器硬跳转
+      // 这会清空所有 React Context，重新向服务器请求最新数据
+      window.location.href = "/projects";
     }
 
     setIsLoading(false);
@@ -63,7 +65,8 @@ export default function LoginPage() {
     if (error) {
       setError(error.message);
     } else {
-      setError("注册成功！请检查您的电子邮件以确认您的账户。");
+      // ✅ 注册成功后强制硬跳转到projects页面
+      window.location.href = "/projects";
     }
 
     setIsRegisterLoading(false);

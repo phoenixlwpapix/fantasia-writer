@@ -134,7 +134,8 @@ export default function ProjectDashboard() {
   const handleLogout = async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
-    router.push("/");
+    // ✅ 确保登出后清空所有敏感数据
+    window.location.href = "/";
   };
 
   const filteredProjects = projects.filter((project) => {
@@ -251,9 +252,18 @@ export default function ProjectDashboard() {
                 <p className="text-[10px] text-secondary uppercase tracking-wider mb-1 font-bold">
                   可用点数
                 </p>
-                <div className="flex items-center gap-2 text-primary font-bold">
-                  <Coins className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-                  <span>{userCredits}</span>
+                <div className="flex items-center justify-between text-primary font-bold">
+                  <div className="flex items-center gap-2">
+                    <Coins className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                    <span>{userCredits}</span>
+                  </div>
+                  <Link
+                    href="/pricing"
+                    className="px-2 py-1 bg-black text-white text-xs rounded hover:bg-gray-800 transition-colors"
+                    onClick={() => setIsUserMenuOpen(false)}
+                  >
+                    充值
+                  </Link>
                 </div>
               </div>
               {isAdmin && (
