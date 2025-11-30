@@ -1,11 +1,11 @@
-import React from "react";
-import { X, Coins } from "lucide-react";
+import React, { useState } from "react";
+import { X, Coins, Loader2 } from "lucide-react";
 import { Button } from "./ui/UIComponents";
 
 interface CreditModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: () => Promise<void>;
   cost: number;
   balance?: number;
   title: string;
@@ -21,7 +21,21 @@ export const CreditConfirmationModal: React.FC<CreditModalProps> = ({
   title,
   description,
 }) => {
+  const [isProcessing, setIsProcessing] = useState(false);
+
   if (!isOpen) return null;
+
+  const handleConfirm = async () => {
+    setIsProcessing(true);
+    try {
+      await onConfirm();
+      onClose();
+    } catch (error) {
+      console.error("Confirmation failed:", error);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
@@ -29,7 +43,8 @@ export const CreditConfirmationModal: React.FC<CreditModalProps> = ({
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-black transition-colors"
+          disabled={isProcessing}
+          className="absolute top-4 right-4 text-gray-400 hover:text-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <X className="w-5 h-5" />
         </button>
@@ -70,16 +85,24 @@ export const CreditConfirmationModal: React.FC<CreditModalProps> = ({
             <Button
               variant="primary"
               className="w-full h-11 text-base shadow-lg shadow-black/5"
-              onClick={() => {
-                onConfirm();
-                onClose();
-              }}
+              onClick={handleConfirm}
+              disabled={isProcessing}
             >
-              确认支付 <span className="font-mono ml-1">{cost}</span> 点数
+              {isProcessing ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  点数结算中...
+                </>
+              ) : (
+                <>
+                  确认支付 <span className="font-mono ml-1">{cost}</span> 点数
+                </>
+              )}
             </Button>
             <button
               onClick={onClose}
-              className="w-full text-center text-xs text-secondary hover:text-primary py-2"
+              disabled={isProcessing}
+              className="w-full text-center text-xs text-secondary hover:text-primary py-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               再想想
             </button>
