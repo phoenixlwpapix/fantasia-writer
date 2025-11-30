@@ -61,14 +61,18 @@ export const ProjectCreationSelector: React.FC<
     const cost = GENERATION_COSTS[GenerationType.COMPLETE_SETUP];
     const supabase = createClient();
     const success = await deductUserCredits(supabase, cost);
-    if (success) {
-      setUserCredits((prev) => prev - cost);
-      await executeGeneration(pendingGenerationData);
-    } else {
-      alert("扣除积分失败，请重试");
+    if (!success) {
+      throw new Error("积分不足或扣除失败，请检查账户余额");
     }
 
+    setUserCredits((prev) => prev - cost);
+
+    // Start generation asynchronously after modal closes
+    const generationData = pendingGenerationData;
     setPendingGenerationData(null);
+
+    // Start generation without awaiting
+    executeGeneration(generationData);
   };
 
   const executeGeneration = async (data: {

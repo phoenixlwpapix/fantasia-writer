@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { X, Coins, Loader2 } from "lucide-react";
+import { X, Coins, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "./ui/UIComponents";
 
 interface CreditModalProps {
@@ -22,19 +22,27 @@ export const CreditConfirmationModal: React.FC<CreditModalProps> = ({
   description,
 }) => {
   const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
   const handleConfirm = async () => {
     setIsProcessing(true);
+    setError(null);
     try {
       await onConfirm();
       onClose();
     } catch (error) {
       console.error("Confirmation failed:", error);
+      setError(error instanceof Error ? error.message : "扣除积分失败，请重试");
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const handleRetry = () => {
+    setError(null);
+    handleConfirm();
   };
 
   return (
@@ -82,30 +90,63 @@ export const CreditConfirmationModal: React.FC<CreditModalProps> = ({
           </div>
 
           <div className="space-y-3">
-            <Button
-              variant="primary"
-              className="w-full h-11 text-base shadow-lg shadow-black/5"
-              onClick={handleConfirm}
-              disabled={isProcessing}
-            >
-              {isProcessing ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  点数结算中...
-                </>
-              ) : (
-                <>
-                  确认支付 <span className="font-mono ml-1">{cost}</span> 点数
-                </>
-              )}
-            </Button>
-            <button
-              onClick={onClose}
-              disabled={isProcessing}
-              className="w-full text-center text-xs text-secondary hover:text-primary py-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              再想想
-            </button>
+            {error ? (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                <div className="flex items-center gap-2 text-red-700 mb-3">
+                  <AlertCircle className="w-4 h-4" />
+                  <span className="text-sm font-medium">操作失败</span>
+                </div>
+                <p className="text-sm text-red-600 mb-4">{error}</p>
+                <div className="flex gap-3">
+                  <Button
+                    variant="primary"
+                    className="flex-1"
+                    onClick={handleRetry}
+                    disabled={isProcessing}
+                  >
+                    {isProcessing ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        重试中...
+                      </>
+                    ) : (
+                      "重试"
+                    )}
+                  </Button>
+                  <Button variant="ghost" className="flex-1" onClick={onClose}>
+                    取消
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <Button
+                  variant="primary"
+                  className="w-full h-11 text-base shadow-lg shadow-black/5"
+                  onClick={handleConfirm}
+                  disabled={isProcessing}
+                >
+                  {isProcessing ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      点数结算中...
+                    </>
+                  ) : (
+                    <>
+                      确认支付 <span className="font-mono ml-1">{cost}</span>{" "}
+                      点数
+                    </>
+                  )}
+                </Button>
+                <button
+                  onClick={onClose}
+                  disabled={isProcessing}
+                  className="w-full text-center text-xs text-secondary hover:text-primary py-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  再想想
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>

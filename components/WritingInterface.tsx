@@ -256,15 +256,20 @@ export const WritingInterface: React.FC<WritingInterfaceProps> = ({
     const cost = GENERATION_COSTS[pendingGenerationType];
     const supabase = createClient();
     const success = await deductUserCredits(supabase, cost);
-    if (success) {
-      setUserCredits((prev) => prev - cost);
-      await executeGeneration(pendingCustomInstructions);
-    } else {
-      alert("扣除积分失败，请重试");
+    if (!success) {
+      throw new Error("积分不足或扣除失败，请检查账户余额");
     }
 
+    setUserCredits((prev) => prev - cost);
+
+    // Start generation asynchronously after modal closes
+    const generationType = pendingGenerationType;
+    const customInstructions = pendingCustomInstructions;
     setPendingGenerationType(null);
     setPendingCustomInstructions(undefined);
+
+    // Start generation without awaiting
+    executeGeneration(customInstructions);
   };
 
   const currentChapter = chapters.find(

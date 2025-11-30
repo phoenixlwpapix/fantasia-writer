@@ -89,14 +89,18 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onFinish }) => {
     const cost = GENERATION_COSTS[GenerationType.SINGLE_PAGE_SETUP];
     const supabase = createClient();
     const success = await deductUserCredits(supabase, cost);
-    if (success) {
-      setUserCredits((prev) => prev - cost);
-      await executeGeneration(pendingStep);
-    } else {
-      alert("扣除积分失败，请重试");
+    if (!success) {
+      throw new Error("积分不足或扣除失败，请检查账户余额");
     }
 
+    setUserCredits((prev) => prev - cost);
+
+    // Start generation asynchronously after modal closes
+    const step = pendingStep;
     setPendingStep(null);
+
+    // Start generation without awaiting
+    executeGeneration(step);
   };
 
   const executeGeneration = async (step: SetupStep) => {
