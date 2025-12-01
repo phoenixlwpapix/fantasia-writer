@@ -17,59 +17,66 @@ import { createClient } from "@/lib/supabase/client";
 export default function LoginPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
-  const [isRegisterLoading, setIsRegisterLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [mode, setMode] = useState<"login" | "register">("login");
+  const [hint, setHint] = useState("");
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const translateAuthError = (errorMessage: string) => {
+    const translations: { [key: string]: string } = {
+      "Invalid login credentials": "无效的登录凭据",
+      "Email not confirmed": "邮箱未验证，请检查您的邮箱并点击验证链接",
+      "User already registered": "该邮箱已被注册",
+      "Invalid email": "无效的邮箱地址",
+      "Password should be at least 6 characters": "密码至少需要6个字符",
+      "Signup is disabled": "注册功能已禁用",
+      "Too many requests": "请求过于频繁，请稍后再试",
+    };
+    return translations[errorMessage] || errorMessage;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError("");
+    setHint("");
 
     const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
 
-    if (error) {
-      setError(
-        error.message === "Invalid login credentials"
-          ? "无效的登录凭据"
-          : error.message
-      );
+    if (mode === "login") {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        setError(translateAuthError(error.message));
+      } else {
+        window.location.href = "/projects";
+      }
     } else {
-      // ✅ 强制浏览器硬跳转
-      // 这会清空所有 React Context，重新向服务器请求最新数据
-      window.location.href = "/projects";
+      // REGISTER
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+
+      if (error) {
+        setError(translateAuthError(error.message));
+      } else {
+        if (data.session) {
+          // Email confirmation not required, user is signed in immediately
+          window.location.href = "/projects";
+        } else {
+          // Email confirmation required
+          setHint("注册成功！请检查您的邮箱完成验证。");
+          // Do not redirect automatically
+        }
+      }
     }
 
     setIsLoading(false);
-  };
-
-  const handleRegister = async () => {
-    if (!email || !password) {
-      setError("请输入电子邮箱和密码");
-      return;
-    }
-    setIsRegisterLoading(true);
-    setError("");
-
-    const supabase = createClient();
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
-
-    if (error) {
-      setError(error.message);
-    } else {
-      // ✅ 注册成功后强制硬跳转到projects页面
-      window.location.href = "/projects";
-    }
-
-    setIsRegisterLoading(false);
   };
 
   // Inspirational fragments that float on the right side
@@ -114,7 +121,7 @@ export default function LoginPage() {
             继续编织您的世界。每一个伟大的故事都始于登录。
           </p>
 
-          <form onSubmit={handleLogin} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-1.5 group">
               <label className="text-xs font-bold uppercase tracking-widest text-secondary group-focus-within:text-black transition-colors">
                 电子邮箱
@@ -164,12 +171,17 @@ export default function LoginPage() {
             >
               {isLoading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
+              ) : mode === "login" ? (
                 <>
                   进入工作室 <ArrowRight className="w-4 h-4" />
                 </>
+              ) : (
+                <>
+                  完成注册 <ArrowRight className="w-4 h-4" />
+                </>
               )}
             </button>
+            {hint && <p className="text-green-600 text-sm mt-2">{hint}</p>}
             {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
           </form>
 
@@ -194,14 +206,32 @@ export default function LoginPage() {
           </div>
 
           <p className="text-center text-xs text-secondary mt-8">
-            还没有账号?{" "}
-            <button
-              onClick={handleRegister}
-              disabled={isRegisterLoading}
-              className="text-black font-bold hover:underline underline-offset-4 disabled:opacity-50"
-            >
-              {isRegisterLoading ? "注册中..." : "立即注册"}
-            </button>
+            {mode === "login" ? (
+              <>
+                还没有账号?{" "}
+                <button
+                  onClick={() => {
+                    setMode("register");
+                    setHint("请输入邮箱和密码完成注册");
+                    setError("");
+                  }}
+                  className="text-black font-bold hover:underline underline-offset-4"
+                >
+                  立即注册
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => {
+                  setMode("login");
+                  setHint("");
+                  setError("");
+                }}
+                className="text-black font-bold hover:underline underline-offset-4"
+              >
+                返回登录
+              </button>
+            )}
           </p>
         </div>
 
