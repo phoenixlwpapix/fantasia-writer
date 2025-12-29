@@ -89,6 +89,9 @@ interface StoryContextType {
   closeProject: () => void; // New method for cleanup
   deleteProject: (id: string) => void;
   updateProjectMetadata: (id: string, data: Partial<ProjectMetadata>) => void;
+
+  // Dirty state for auto-save
+  markDirty: () => void;
 }
 
 const StoryContext = createContext<StoryContextType | undefined>(undefined);
@@ -109,6 +112,9 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({
   // Workspace State
   const [bible, setBible] = useState<StoryBible>(DEFAULT_BIBLE);
   const [chapters, setChapters] = useState<StoryChapter[]>([]);
+
+  // Track if there are unsaved changes (prevents auto-save on initial load)
+  const [isDirty, setIsDirty] = useState(false);
 
   // User Info State
   const [user, setUser] = useState<any>(null);
@@ -163,9 +169,9 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({
     // Auth state changes are handled by component re-mounting on route changes
   }, []);
 
-  // Auto-save current project to Supabase
+  // Auto-save current project to Supabase (only when there are actual changes)
   useEffect(() => {
-    if (!currentProjectId) return;
+    if (!currentProjectId || !isDirty) return;
 
     const autoSave = async () => {
       const supabase = createClient();
@@ -181,6 +187,9 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({
         }
       }
 
+      // Reset dirty flag after successful save
+      setIsDirty(false);
+
       // Refresh projects list to update metadata
       const updatedProjects = await loadUserBooks(supabase);
       setProjects(updatedProjects);
@@ -189,7 +198,7 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({
     // Debounce auto-save
     const timeoutId = setTimeout(autoSave, 1000);
     return () => clearTimeout(timeoutId);
-  }, [bible, chapters, currentProjectId]);
+  }, [bible, chapters, currentProjectId, isDirty]);
 
   const createProject = () => {
     router.push("/projects/new");
@@ -237,8 +246,13 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({
     }
   };
 
+  const markDirty = useCallback(() => {
+    setIsDirty(true);
+  }, []);
+
   const updateCore = useCallback((data: Partial<StoryBible["core"]>) => {
     setBible((prev) => ({ ...prev, core: { ...prev.core, ...data } }));
+    setIsDirty(true);
   }, []);
 
   const updateInstruction = useCallback(
@@ -247,6 +261,7 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({
         ...prev,
         instructions: { ...prev.instructions, ...data },
       }));
+      setIsDirty(true);
     },
     []
   );
@@ -290,6 +305,7 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({
         closeProject,
         deleteProject,
         updateProjectMetadata,
+        markDirty,
       }}
     >
       {children}

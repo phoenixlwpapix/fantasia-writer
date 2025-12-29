@@ -71,6 +71,7 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onFinish }) => {
   // Rename Characters Modal State
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [renameMap, setRenameMap] = useState<Record<string, string>>({});
+  const [isRenaming, setIsRenaming] = useState(false);
 
   // Check if core requirements are met (Title, Theme, Genre)
   const isCoreReady = !!(
@@ -281,68 +282,74 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onFinish }) => {
 
     if (replacements.length === 0) {
       setShowRenameModal(false);
+      setRenameMap({});
       return;
     }
 
-    // 辅助函数：替换文本中的所有人名
-    const replaceNames = (text: string) => {
-      let result = text;
-      replacements.forEach(({ oldName, newName }) => {
-        // 使用正则表达式全局替换
-        const regex = new RegExp(oldName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
-        result = result.replace(regex, newName);
-      });
-      return result;
-    };
-
-    // 更新角色名称
-    const updatedCharacters = bible.characters.map((char) => {
-      const replacement = replacements.find((r) => r.oldName === char.name);
-      return {
-        ...char,
-        name: replacement ? replacement.newName : char.name,
-        description: replaceNames(char.description),
-        background: replaceNames(char.background),
-        motivation: replaceNames(char.motivation),
-        arcOrConflict: replaceNames(char.arcOrConflict),
+    setIsRenaming(true);
+    try {
+      // 辅助函数：替换文本中的所有人名
+      const replaceNames = (text: string) => {
+        let result = text;
+        replacements.forEach(({ oldName, newName }) => {
+          // 使用正则表达式全局替换
+          const regex = new RegExp(oldName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+          result = result.replace(regex, newName);
+        });
+        return result;
       };
-    });
 
-    // 更新核心设定中的人名
-    const updatedCore = {
-      ...bible.core,
-      logline: replaceNames(bible.core.logline),
-      settingWorld: replaceNames(bible.core.settingWorld),
-    };
+      // 更新角色名称
+      const updatedCharacters = bible.characters.map((char) => {
+        const replacement = replacements.find((r) => r.oldName === char.name);
+        return {
+          ...char,
+          name: replacement ? replacement.newName : char.name,
+          description: replaceNames(char.description),
+          background: replaceNames(char.background),
+          motivation: replaceNames(char.motivation),
+          arcOrConflict: replaceNames(char.arcOrConflict),
+        };
+      });
 
-    // 更新大纲中的人名
-    const updatedOutline = bible.outline.map((chapter) => ({
-      ...chapter,
-      title: replaceNames(chapter.title),
-      summary: replaceNames(chapter.summary),
-    }));
+      // 更新核心设定中的人名
+      const updatedCore = {
+        ...bible.core,
+        logline: replaceNames(bible.core.logline),
+        settingWorld: replaceNames(bible.core.settingWorld),
+      };
 
-    // 更新 Bible
-    setBible((prev) => ({
-      ...prev,
-      core: updatedCore,
-      characters: updatedCharacters,
-      outline: updatedOutline,
-    }));
+      // 更新大纲中的人名
+      const updatedOutline = bible.outline.map((chapter) => ({
+        ...chapter,
+        title: replaceNames(chapter.title),
+        summary: replaceNames(chapter.summary),
+      }));
 
-    // 保存到数据库
-    if (currentProjectId) {
-      const supabase = createClient();
-      await updateBook(supabase, currentProjectId, {
-        ...bible,
+      // 更新 Bible
+      setBible((prev) => ({
+        ...prev,
         core: updatedCore,
         characters: updatedCharacters,
         outline: updatedOutline,
-      });
-    }
+      }));
 
-    setShowRenameModal(false);
-    setRenameMap({});
+      // 保存到数据库
+      if (currentProjectId) {
+        const supabase = createClient();
+        await updateBook(supabase, currentProjectId, {
+          ...bible,
+          core: updatedCore,
+          characters: updatedCharacters,
+          outline: updatedOutline,
+        });
+      }
+    } finally {
+      // 无论成功或失败，都关闭 modal 并重置状态
+      setIsRenaming(false);
+      setShowRenameModal(false);
+      setRenameMap({});
+    }
   };
 
   const ClearStepButton = () => (
@@ -974,9 +981,9 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onFinish }) => {
                 variant="primary"
                 className="flex-1"
                 onClick={executeRename}
-                disabled={Object.keys(renameMap).length === 0}
+                disabled={Object.keys(renameMap).length === 0 || isRenaming}
               >
-                确认更新
+                {isRenaming ? "正在更新..." : "确认更新"}
               </Button>
             </div>
           </div>
