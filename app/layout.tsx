@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Noto_Serif_SC, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { StoryProvider } from "../components/StoryProvider";
+import { ToastProvider } from "../components/ui/Toast";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -35,7 +36,9 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${notoSerifSC.variable} ${jetbrainsMono.variable} antialiased`}
       >
-        <StoryProvider>{children}</StoryProvider>
+        <ToastProvider>
+          <StoryProvider>{children}</StoryProvider>
+        </ToastProvider>
       </body>
     </html>
   );

@@ -28,6 +28,8 @@ import {
   ResponsiveContainer,
   AreaChart,
   Area,
+  BarChart,
+  Bar,
 } from "recharts";
 import { Button, Input } from "../../components/ui/UIComponents";
 import { createClient } from "../../lib/supabase/client";
@@ -52,6 +54,7 @@ interface StatsData {
   totalUsers: number;
   totalBooks: number;
   totalWords: number;
+  totalCredits: number;
   userTrend: number;
   bookTrend: number;
   wordTrend: number;
@@ -82,9 +85,8 @@ const StatCard = ({ title, value, subValue, icon: Icon, trend }: any) => (
     </div>
     <div className="flex items-center text-xs mt-2">
       <span
-        className={`font-bold ${
-          trend > 0 ? "text-green-600" : "text-red-600"
-        } flex items-center`}
+        className={`font-bold ${trend > 0 ? "text-green-600" : "text-red-600"
+          } flex items-center`}
       >
         {trend > 0 ? "+" : ""}
         {trend}%
@@ -104,6 +106,7 @@ export default function AdminDashboard() {
     totalUsers: 0,
     totalBooks: 0,
     totalWords: 0,
+    totalCredits: 0,
     userTrend: 0,
     bookTrend: 0,
     wordTrend: 0,
@@ -124,18 +127,36 @@ export default function AdminDashboard() {
   const [rechargeNote, setRechargeNote] = useState("");
   const [rechargeLoading, setRechargeLoading] = useState(false);
 
-  // Load data on component mount
+  const [timeRange, setTimeRange] = useState<"7days" | "30days">("7days");
+  const [fullChartData, setFullChartData] = useState<ChartDataPoint[]>([]);
+
+  // Load data ONLY once on component mount
   useEffect(() => {
     loadAdminData();
     loadUserData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Filter chart data locally when timeRange changes or full data arrives
+  useEffect(() => {
+    if (fullChartData.length === 0) return;
+
+    if (timeRange === "7days") {
+      // Take the last 7 days from the cached full data
+      setChartData(fullChartData.slice(-7));
+    } else {
+      // Show all 30 days
+      setChartData(fullChartData);
+    }
+  }, [timeRange, fullChartData]);
+
+  /* eslint-disable react-hooks/exhaustive-deps */
   const loadAdminData = async () => {
     try {
       setLoading(true);
 
-      // Fetch real stats from admin API
-      const response = await fetch("/api/admin/stats");
+      // Always fetch 30 days of data to cache it locally
+      const response = await fetch(`/api/admin/stats?days=30`);
       if (!response.ok) {
         throw new Error("Failed to fetch stats");
       }
@@ -143,44 +164,13 @@ export default function AdminDashboard() {
       const data = await response.json();
       setStats(data.stats);
 
-      // Mock chart data for now (can be enhanced later with real time-series data)
-      setChartData([
-        {
-          name: "Mon",
-          users: Math.floor(data.stats.totalUsers * 0.8),
-          words: Math.floor(data.stats.totalWords * 0.7),
-        },
-        {
-          name: "Tue",
-          users: Math.floor(data.stats.totalUsers * 0.85),
-          words: Math.floor(data.stats.totalWords * 0.75),
-        },
-        {
-          name: "Wed",
-          users: Math.floor(data.stats.totalUsers * 0.75),
-          words: Math.floor(data.stats.totalWords * 0.72),
-        },
-        {
-          name: "Thu",
-          users: Math.floor(data.stats.totalUsers * 0.9),
-          words: Math.floor(data.stats.totalWords * 0.8),
-        },
-        {
-          name: "Fri",
-          users: Math.floor(data.stats.totalUsers * 1.0),
-          words: Math.floor(data.stats.totalWords * 0.95),
-        },
-        {
-          name: "Sat",
-          users: Math.floor(data.stats.totalUsers * 1.1),
-          words: Math.floor(data.stats.totalWords * 1.1),
-        },
-        {
-          name: "Sun",
-          users: Math.floor(data.stats.totalUsers * 1.05),
-          words: Math.floor(data.stats.totalWords * 1.05),
-        },
-      ]);
+      // Store the full dataset locally
+      const allData = data.chartData || [];
+      setFullChartData(allData);
+
+      // Note: we don't need to call setChartData here because the useEffect above 
+      // will trigger as soon as fullChartData changes.
+
     } catch (error) {
       console.error("Error loading admin data:", error);
       // Fallback to mock data if API fails
@@ -188,10 +178,13 @@ export default function AdminDashboard() {
         totalUsers: 0,
         totalBooks: 0,
         totalWords: 0,
+        totalCredits: 0,
         userTrend: 0,
         bookTrend: 0,
         wordTrend: 0,
       });
+      setChartData([]);
+      setFullChartData([]);
     } finally {
       setLoading(false);
     }
@@ -266,8 +259,8 @@ export default function AdminDashboard() {
                       loading
                         ? "..."
                         : stats.totalWords >= 1000000
-                        ? `${(stats.totalWords / 1000000).toFixed(1)}M`
-                        : `${(stats.totalWords / 1000).toFixed(1)}K`
+                          ? `${(stats.totalWords / 1000000).toFixed(1)}M`
+                          : `${(stats.totalWords / 1000).toFixed(1)}K`
                     }
                     subValue="较上周"
                     trend={stats.wordTrend}
@@ -279,34 +272,18 @@ export default function AdminDashboard() {
                 <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
                   <div className="flex justify-between items-center mb-6">
                     <h3 className="font-bold text-gray-900">平台增长趋势</h3>
-                    <select className="text-sm border border-gray-200 rounded-md px-2 py-1 bg-gray-50 outline-none">
-                      <option>最近7天</option>
-                      <option>最近30天</option>
+                    <select
+                      className="text-sm border border-gray-200 rounded-md px-2 py-1 bg-gray-50 outline-none hover:bg-gray-100 transition-colors cursor-pointer"
+                      value={timeRange}
+                      onChange={(e) => setTimeRange(e.target.value as "7days" | "30days")}
+                    >
+                      <option value="7days">最近7天</option>
+                      <option value="30days">最近30天</option>
                     </select>
                   </div>
                   <div className="h-[300px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={chartData}>
-                        <defs>
-                          <linearGradient
-                            id="colorWords"
-                            x1="0"
-                            y1="0"
-                            x2="0"
-                            y2="1"
-                          >
-                            <stop
-                              offset="5%"
-                              stopColor="#000000"
-                              stopOpacity={0.1}
-                            />
-                            <stop
-                              offset="95%"
-                              stopColor="#000000"
-                              stopOpacity={0}
-                            />
-                          </linearGradient>
-                        </defs>
+                      <BarChart data={chartData} barGap={0}>
                         <CartesianGrid
                           strokeDasharray="3 3"
                           vertical={false}
@@ -316,47 +293,69 @@ export default function AdminDashboard() {
                           dataKey="name"
                           axisLine={false}
                           tickLine={false}
-                          tick={{ fill: "#9ca3af", fontSize: 12 }}
+                          tick={{ fill: "#6b7280", fontSize: 12 }}
                           dy={10}
                         />
                         <YAxis
+                          yAxisId="left"
                           axisLine={false}
                           tickLine={false}
-                          tick={{ fill: "#9ca3af", fontSize: 12 }}
+                          tick={{ fill: "#6b7280", fontSize: 12 }}
                           tickFormatter={(value) =>
-                            `${(value / 1000).toFixed(0)}k`
+                            value >= 1000 ? `${(value / 1000).toFixed(0)}k` : value
                           }
                         />
+                        <YAxis
+                          yAxisId="right"
+                          orientation="right"
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{ fill: "#6b7280", fontSize: 12 }}
+                        />
                         <Tooltip
-                          contentStyle={{
-                            borderRadius: "8px",
-                            border: "none",
-                            boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
+                          cursor={{ fill: "#f9fafb" }}
+                          content={({ active, payload, label }) => {
+                            if (active && payload && payload.length) {
+                              return (
+                                <div className="bg-white p-3 border border-gray-100 shadow-xl rounded-lg text-xs">
+                                  <p className="font-bold text-gray-900 mb-2">{label}</p>
+                                  {payload.map((entry: any, index: number) => (
+                                    <div key={index} className="flex items-center gap-2 mb-1 last:mb-0">
+                                      <div
+                                        className="w-2 h-2 rounded-full"
+                                        style={{ backgroundColor: entry.color }}
+                                      />
+                                      <span className="text-gray-500 capitalize">
+                                        {entry.name === 'words' ? '新增字数' : entry.name === 'users' ? '新增用户' : entry.name}:
+                                      </span>
+                                      <span className="font-mono font-medium">
+                                        {entry.name === 'words'
+                                          ? (entry.value >= 1000 ? `${(entry.value / 1000).toFixed(1)}k` : entry.value)
+                                          : entry.value}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              );
+                            }
+                            return null;
                           }}
-                          formatter={(value: number, name: string) => [
-                            name === "words"
-                              ? `${(value / 1000).toFixed(1)}k 字`
-                              : `${value} 用户`,
-                            name === "words" ? "生成字数" : "用户数",
-                          ]}
                         />
-                        <Area
-                          type="monotone"
+                        <Bar
+                          yAxisId="left"
                           dataKey="words"
-                          stroke="#000000"
-                          strokeWidth={2}
-                          fillOpacity={1}
-                          fill="url(#colorWords)"
+                          fill="#000000"
+                          radius={[4, 4, 0, 0]}
+                          maxBarSize={50}
                         />
-                        <Line
-                          type="monotone"
+                        <Bar
+                          yAxisId="right"
                           dataKey="users"
-                          stroke="#9ca3af"
-                          strokeWidth={2}
-                          strokeDasharray="5 5"
-                          dot={false}
+                          fill="#e5e7eb"
+                          radius={[4, 4, 0, 0]}
+                          maxBarSize={50}
                         />
-                      </AreaChart>
+                      </BarChart>
                     </ResponsiveContainer>
                   </div>
                 </div>
@@ -413,7 +412,7 @@ export default function AdminDashboard() {
                           <th className="px-6 py-4">用户信息</th>
                           <th className="px-6 py-4">注册时间</th>
                           <th className="px-6 py-4 text-center">书籍 / 字数</th>
-                          <th className="px-6 py-4 text-center">状态</th>
+
                           <th className="px-6 py-4 text-right">当前积分</th>
                           <th className="px-6 py-4 text-right">操作</th>
                         </tr>
@@ -432,10 +431,10 @@ export default function AdminDashboard() {
                                     <img
                                       src={user.avatarUrl}
                                       alt={user.fullName || user.email}
-                                      className="w-8 h-8 rounded-full object-cover"
+                                      className="w-8 h-8 rounded-full object-cover flex-shrink-0"
                                     />
                                   ) : (
-                                    <div className="w-8 bg-gray-200 rounded-full flex items-center justify-center">
+                                    <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center flex-shrink-0">
                                       <span className="text-xs font-medium text-gray-600">
                                         {(user.fullName || user.email)
                                           .charAt(0)
@@ -467,17 +466,7 @@ export default function AdminDashboard() {
                                   {(user.words / 1000).toFixed(1)}k 字
                                 </div>
                               </td>
-                              <td className="px-6 py-4 text-center">
-                                <span
-                                  className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                                    user.status === "active"
-                                      ? "bg-green-100 text-green-700"
-                                      : "bg-gray-100 text-gray-600"
-                                  }`}
-                                >
-                                  {user.status === "active" ? "正常" : "冻结"}
-                                </span>
-                              </td>
+
                               <td className="px-6 py-4 text-right">
                                 <div className="font-mono font-bold text-lg text-gray-900">
                                   {user.credits}
@@ -552,15 +541,7 @@ export default function AdminDashboard() {
                                 </div>
                               </div>
                             </div>
-                            <span
-                              className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 ${
-                                user.status === "active"
-                                  ? "bg-green-100 text-green-700"
-                                  : "bg-gray-100 text-gray-600"
-                              }`}
-                            >
-                              {user.status === "active" ? "正常" : "冻结"}
-                            </span>
+
                           </div>
 
                           <div className="grid grid-cols-2 gap-4 mb-3 text-sm">
@@ -695,11 +676,10 @@ export default function AdminDashboard() {
                     <button
                       key={amount}
                       onClick={() => setRechargeAmount(amount.toString())}
-                      className={`py-2 px-3 rounded-md text-sm border font-medium transition-all ${
-                        rechargeAmount === amount.toString()
-                          ? "border-black bg-black text-white"
-                          : "border-gray-200 hover:border-gray-400 text-gray-600"
-                      }`}
+                      className={`py-2 px-3 rounded-md text-sm border font-medium transition-all ${rechargeAmount === amount.toString()
+                        ? "border-black bg-black text-white"
+                        : "border-gray-200 hover:border-gray-400 text-gray-600"
+                        }`}
                     >
                       +{amount}
                     </button>
@@ -861,11 +841,10 @@ export default function AdminDashboard() {
                         </td>
                         <td className="px-4 sm:px-6 py-4">
                           <span
-                            className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                              record.amount > 0
-                                ? "bg-green-50 text-green-700"
-                                : "bg-orange-50 text-orange-700"
-                            }`}
+                            className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${record.amount > 0
+                              ? "bg-green-50 text-green-700"
+                              : "bg-orange-50 text-orange-700"
+                              }`}
                           >
                             {record.type}
                           </span>
@@ -874,11 +853,10 @@ export default function AdminDashboard() {
                           {record.operator}
                         </td>
                         <td
-                          className={`px-4 sm:px-6 py-4 text-right font-mono font-bold ${
-                            record.amount > 0
-                              ? "text-green-600"
-                              : "text-gray-900"
-                          }`}
+                          className={`px-4 sm:px-6 py-4 text-right font-mono font-bold ${record.amount > 0
+                            ? "text-green-600"
+                            : "text-gray-900"
+                            }`}
                         >
                           {record.amount > 0 ? "+" : ""}
                           {record.amount}
@@ -944,11 +922,10 @@ export default function AdminDashboard() {
                           </div>
                           <div className="flex items-center gap-2">
                             <span
-                              className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                                record.amount > 0
-                                  ? "bg-green-50 text-green-700"
-                                  : "bg-orange-50 text-orange-700"
-                              }`}
+                              className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${record.amount > 0
+                                ? "bg-green-50 text-green-700"
+                                : "bg-orange-50 text-orange-700"
+                                }`}
                             >
                               {record.type}
                             </span>
@@ -958,11 +935,10 @@ export default function AdminDashboard() {
                           </div>
                         </div>
                         <div
-                          className={`text-right font-mono font-bold text-lg ${
-                            record.amount > 0
-                              ? "text-green-600"
-                              : "text-gray-900"
-                          }`}
+                          className={`text-right font-mono font-bold text-lg ${record.amount > 0
+                            ? "text-green-600"
+                            : "text-gray-900"
+                            }`}
                         >
                           {record.amount > 0 ? "+" : ""}
                           {record.amount}

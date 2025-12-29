@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
   ArrowRight,
@@ -145,9 +146,8 @@ const ConsoleSimulator: React.FC = () => {
         {hasStarted && (
           <div className="inline-block align-middle">
             <span
-              className={`inline-block w-2 h-4 bg-green-400/80 ml-1 align-middle ${
-                isBlinking ? "animate-pulse" : "opacity-100"
-              }`}
+              className={`inline-block w-2 h-4 bg-green-400/80 ml-1 align-middle ${isBlinking ? "animate-pulse" : "opacity-100"
+                }`}
             />
           </div>
         )}
@@ -157,27 +157,54 @@ const ConsoleSimulator: React.FC = () => {
   );
 };
 
+
+
 export default function LandingPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     const supabase = createClient();
     const checkAuth = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      setIsAuthenticated(!!session);
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (session) {
+          router.replace("/projects");
+          return;
+        }
+        setIsAuthenticated(!!session);
+      } finally {
+        setIsLoading(false);
+      }
     };
     checkAuth();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
+      if (session) {
+        router.replace("/projects");
+      }
       setIsAuthenticated(!!session);
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [router]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="animate-pulse flex flex-col items-center">
+          <div className="w-12 h-12 bg-gray-100 rounded-lg mb-4"></div>
+          <div className="h-4 w-32 bg-gray-100 rounded"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white text-primary font-sans selection:bg-black selection:text-white overflow-x-hidden">

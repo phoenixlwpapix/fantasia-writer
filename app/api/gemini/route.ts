@@ -34,7 +34,7 @@ export async function POST(req: Request) {
     switch (action) {
       case "generateFullStoryBible": {
         const { idea, targetChapterCount, targetChapterWordCount } = payload;
-        const model = "gemini-3-pro-preview";
+        const model = "gemini-3-flash-preview";
         const prompt = `
           Role: 顶级畅销小说架构师。
           Task: 根据用户的灵感，一次性构建完整的小说设定集 (Story Bible)。
@@ -150,7 +150,7 @@ export async function POST(req: Request) {
 
       case "generateStoryCore": {
         const { current } = payload;
-        const model = "gemini-3-pro-preview";
+        const model = "gemini-3-flash-preview";
         const prompt = `
           Role: 世界级小说家和创意总监。
           Task: 为一部小说创建或优化核心设定 (Core Concept)。
@@ -186,7 +186,7 @@ export async function POST(req: Request) {
 
       case "generateCharacterList": {
         const { core, currentChars } = payload;
-        const model = "gemini-3-pro-preview";
+        const model = "gemini-3-flash-preview";
         const prompt = `
           Role: 角色设计师。
           Context: 基于以下小说核心设定:
@@ -229,14 +229,14 @@ export async function POST(req: Request) {
 
       case "generateWritingInstructions": {
         const { bible } = payload;
-        const model = "gemini-3-pro-preview";
+        const model = "gemini-3-flash-preview";
         const prompt = `
           Role: 文学编辑。
           Context:
           Core: ${JSON.stringify(bible.core)}
           Characters: ${JSON.stringify(
-            bible.characters.map((c: Character) => c.name + ": " + c.role)
-          )}
+          bible.characters.map((c: Character) => c.name + ": " + c.role)
+        )}
 
           Task: 定义写作风格指南。
           
@@ -264,7 +264,7 @@ export async function POST(req: Request) {
 
       case "analyzeChapterContext": {
         const { content, title } = payload;
-        const model = "gemini-2.5-flash";
+        const model = "gemini-3-flash-preview";
         const prompt = `
           Role: Continuity Editor for a novel.
           Task: Analyze the following chapter content and extract key information to ensure continuity in future chapters.
@@ -296,7 +296,7 @@ export async function POST(req: Request) {
 
       case "generateFullOutline": {
         const { bible } = payload;
-        const model = "gemini-3-pro-preview";
+        const model = "gemini-3-flash-preview";
         const targetCount = bible.core?.targetChapterCount || 8;
 
         const prompt = `
@@ -325,6 +325,43 @@ export async function POST(req: Request) {
         });
         const text = response.text || "[]";
         return NextResponse.json(parseJSON(text) || []);
+      }
+
+      case "generateNewNames": {
+        const { bible, characters } = payload;
+        const model = "gemini-3-flash-preview";
+
+        const prompt = `
+          Role: Naming Expert for Novels.
+          Task: Rename ALL the provided characters to better fit the story setting and tone.
+          
+          Story Title: ${bible.core.title}
+          Theme/Genre: ${bible.core.theme} / ${bible.core.genre}
+          World Setting: ${bible.core.settingWorld}
+          
+          Current Characters:
+          ${JSON.stringify(characters.map((c: any) => ({ name: c.name, role: c.role, desc: c.description })))}
+          
+          Guidelines:
+          1. Provide a NEW name for EACH character.
+          2. The new names must reflect the character's role and the story's cultural/stylistic background.
+          3. If the current name is already perfect, you CAN keep it, but prefer generating fresh alternatives if they are generic.
+          4. Return a mapping object where the KEY is the OLD name and the VALUE is the NEW name.
+          
+          Output Format: JSON Object only.
+          {
+            "Old Name 1": "New Name 1",
+            "Old Name 2": "New Name 2"
+          }
+        `;
+
+        const response = await ai.models.generateContent({
+          model,
+          contents: prompt,
+          config: { responseMimeType: "application/json" },
+        });
+
+        return NextResponse.json(parseJSON(response.text || "{}"));
       }
 
       default:

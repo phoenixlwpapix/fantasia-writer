@@ -7,10 +7,11 @@ import {
   analyzeChapterContext,
 } from "../services/gemini";
 import { Button, Badge, TextArea } from "./ui/UIComponents";
+import { useToast } from "./ui/Toast";
 import {
   saveChapter,
-  getUserCredits,
   deductUserCredits,
+  addUserCredits,
 } from "../lib/supabase-db";
 import { createClient } from "../lib/supabase/client";
 import { CreditConfirmationModal } from "./CreditConfirmationModal";
@@ -49,6 +50,7 @@ export const WritingInterface: React.FC<WritingInterfaceProps> = ({
     setUserCredits,
     currentProjectId,
   } = useStory();
+  const { showToast } = useToast();
   const [generatingId, setGeneratingId] = useState<string | null>(null);
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(
@@ -84,7 +86,7 @@ export const WritingInterface: React.FC<WritingInterfaceProps> = ({
     selectedChapterIdRef.current = selectedChapterId;
   }, [selectedChapterId]);
 
-  const executeGeneration = async (customInstructions?: string) => {
+  const executeGeneration = async (customInstructions?: string, creditCost?: number) => {
     if (!selectedChapterId) return;
 
     if (!bible.id) {
@@ -223,6 +225,25 @@ export const WritingInterface: React.FC<WritingInterfaceProps> = ({
     } catch (e) {
       console.error("Failed to generate", e);
       setGeneratingId(null);
+
+      // 失败时自动退款
+      if (creditCost && creditCost > 0) {
+        try {
+          const supabase = createClient();
+          const refunded = await addUserCredits(supabase, creditCost);
+          if (refunded) {
+            setUserCredits((prev) => prev + creditCost);
+            showToast(`生成失败，已退还 ${creditCost} 积分`, "warning");
+          } else {
+            showToast(`生成失败，积分退还失败，请联系客服`, "error");
+          }
+        } catch (refundError) {
+          console.error("Failed to refund credits:", refundError);
+          showToast(`生成失败，积分退还异常，请联系客服`, "error");
+        }
+      } else {
+        showToast("生成失败，请稍后重试", "error");
+      }
     } finally {
       setAnalyzingId(null);
     }
@@ -263,13 +284,12 @@ export const WritingInterface: React.FC<WritingInterfaceProps> = ({
     setUserCredits((prev) => prev - cost);
 
     // Start generation asynchronously after modal closes
-    const generationType = pendingGenerationType;
     const customInstructions = pendingCustomInstructions;
     setPendingGenerationType(null);
     setPendingCustomInstructions(undefined);
 
-    // Start generation without awaiting
-    executeGeneration(customInstructions);
+    // Start generation without awaiting, pass cost for potential refund
+    executeGeneration(customInstructions, cost);
   };
 
   const currentChapter = chapters.find(
@@ -334,11 +354,10 @@ export const WritingInterface: React.FC<WritingInterfaceProps> = ({
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${
-      bible.core.title?.replace(/\s+/g, "_") ||
+    a.download = `${bible.core.title?.replace(/\s+/g, "_") ||
       bible.core.theme.replace(/\s+/g, "_") ||
       "story"
-    }.md`;
+      }.md`;
     a.click();
   };
 
@@ -457,11 +476,10 @@ export const WritingInterface: React.FC<WritingInterfaceProps> = ({
                   <button
                     key={item.id}
                     onClick={() => handleChapterSelect(item.id)}
-                    className={`w-full text-left px-3 py-2.5 rounded-md text-sm transition-all flex items-center justify-between group ${
-                      selectedChapterId === item.id
-                        ? "bg-black text-white shadow-md"
-                        : "text-secondary hover:bg-gray-100 hover:text-primary"
-                    }`}
+                    className={`w-full text-left px-3 py-2.5 rounded-md text-sm transition-all flex items-center justify-between group ${selectedChapterId === item.id
+                      ? "bg-black text-white shadow-md"
+                      : "text-secondary hover:bg-gray-100 hover:text-primary"
+                      }`}
                   >
                     <div className="flex-1 pr-2 flex items-center min-w-0">
                       <span className="mr-2 opacity-50 font-mono text-xs shrink-0">
@@ -474,27 +492,24 @@ export const WritingInterface: React.FC<WritingInterfaceProps> = ({
 
                     {isGenerating ? (
                       <Loader2
-                        className={`w-3.5 h-3.5 animate-spin flex-shrink-0 ${
-                          selectedChapterId === item.id
-                            ? "text-white"
-                            : "text-primary"
-                        }`}
+                        className={`w-3.5 h-3.5 animate-spin flex-shrink-0 ${selectedChapterId === item.id
+                          ? "text-white"
+                          : "text-primary"
+                          }`}
                       />
                     ) : isAnalyzing ? (
                       <BrainCog
-                        className={`w-3.5 h-3.5 animate-pulse flex-shrink-0 ${
-                          selectedChapterId === item.id
-                            ? "text-white"
-                            : "text-purple-500"
-                        }`}
+                        className={`w-3.5 h-3.5 animate-pulse flex-shrink-0 ${selectedChapterId === item.id
+                          ? "text-white"
+                          : "text-purple-500"
+                          }`}
                       />
                     ) : hasContent ? (
                       <div
-                        className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                          selectedChapterId === item.id
-                            ? "bg-white"
-                            : "bg-green-500"
-                        }`}
+                        className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${selectedChapterId === item.id
+                          ? "bg-white"
+                          : "bg-green-500"
+                          }`}
                       />
                     ) : isLocked && selectedChapterId !== item.id ? (
                       <Lock className="w-3 h-3 opacity-30" />
@@ -519,8 +534,8 @@ export const WritingInterface: React.FC<WritingInterfaceProps> = ({
                     {c.role === "Protagonist"
                       ? "主角"
                       : c.role === "Antagonist"
-                      ? "反派"
-                      : "配角"}
+                        ? "反派"
+                        : "配角"}
                   </span>
                 </div>
               ))}
@@ -599,8 +614,8 @@ export const WritingInterface: React.FC<WritingInterfaceProps> = ({
                 {generatingId === selectedChapterId
                   ? "生成中..."
                   : currentChapter
-                  ? "重写"
-                  : "生成正文"}
+                    ? "重写"
+                    : "生成正文"}
               </Button>
             </div>
           </div>
@@ -826,14 +841,13 @@ export const WritingInterface: React.FC<WritingInterfaceProps> = ({
                 <div
                   className="bg-white h-full transition-all duration-500"
                   style={{
-                    width: `${
-                      ((bible.outline.findIndex(
-                        (c) => c.id === selectedChapterId
-                      ) +
-                        1) /
-                        bible.outline.length) *
+                    width: `${((bible.outline.findIndex(
+                      (c) => c.id === selectedChapterId
+                    ) +
+                      1) /
+                      bible.outline.length) *
                       100
-                    }%`,
+                      }%`,
                   }}
                 />
               </div>

@@ -31,6 +31,9 @@ import {
   Home,
   AlertCircle,
   RotateCcw,
+  RefreshCw,
+  ArrowRightLeft,
+  X,
 } from "lucide-react";
 
 const STEPS: { id: SetupStep; label: string; icon: any }[] = [
@@ -64,6 +67,10 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onFinish }) => {
   // Credits Modal State
   const [isCreditModalOpen, setIsCreditModalOpen] = useState(false);
   const [pendingStep, setPendingStep] = useState<SetupStep | null>(null);
+
+  // Rename Characters Modal State
+  const [showRenameModal, setShowRenameModal] = useState(false);
+  const [renameMap, setRenameMap] = useState<Record<string, string>>({});
 
   // Check if core requirements are met (Title, Theme, Genre)
   const isCoreReady = !!(
@@ -250,6 +257,94 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onFinish }) => {
     }
   };
 
+  // 初始化人名替换映射
+  const initRenameMap = () => {
+    const map: Record<string, string> = {};
+    bible.characters.forEach((char) => {
+      if (char.name.trim()) {
+        map[char.name] = char.name;
+      }
+    });
+    setRenameMap(map);
+    setShowRenameModal(true);
+  };
+
+  // 执行一键人名替换
+  const executeRename = async () => {
+    // 构建替换对（只处理实际改变的名字）
+    const replacements: { oldName: string; newName: string }[] = [];
+    Object.entries(renameMap).forEach(([oldName, newName]) => {
+      if (oldName !== newName && newName.trim()) {
+        replacements.push({ oldName, newName });
+      }
+    });
+
+    if (replacements.length === 0) {
+      setShowRenameModal(false);
+      return;
+    }
+
+    // 辅助函数：替换文本中的所有人名
+    const replaceNames = (text: string) => {
+      let result = text;
+      replacements.forEach(({ oldName, newName }) => {
+        // 使用正则表达式全局替换
+        const regex = new RegExp(oldName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+        result = result.replace(regex, newName);
+      });
+      return result;
+    };
+
+    // 更新角色名称
+    const updatedCharacters = bible.characters.map((char) => {
+      const replacement = replacements.find((r) => r.oldName === char.name);
+      return {
+        ...char,
+        name: replacement ? replacement.newName : char.name,
+        description: replaceNames(char.description),
+        background: replaceNames(char.background),
+        motivation: replaceNames(char.motivation),
+        arcOrConflict: replaceNames(char.arcOrConflict),
+      };
+    });
+
+    // 更新核心设定中的人名
+    const updatedCore = {
+      ...bible.core,
+      logline: replaceNames(bible.core.logline),
+      settingWorld: replaceNames(bible.core.settingWorld),
+    };
+
+    // 更新大纲中的人名
+    const updatedOutline = bible.outline.map((chapter) => ({
+      ...chapter,
+      title: replaceNames(chapter.title),
+      summary: replaceNames(chapter.summary),
+    }));
+
+    // 更新 Bible
+    setBible((prev) => ({
+      ...prev,
+      core: updatedCore,
+      characters: updatedCharacters,
+      outline: updatedOutline,
+    }));
+
+    // 保存到数据库
+    if (currentProjectId) {
+      const supabase = createClient();
+      await updateBook(supabase, currentProjectId, {
+        ...bible,
+        core: updatedCore,
+        characters: updatedCharacters,
+        outline: updatedOutline,
+      });
+    }
+
+    setShowRenameModal(false);
+    setRenameMap({});
+  };
+
   const ClearStepButton = () => (
     <div className="flex justify-end mb-2">
       <button
@@ -275,20 +370,18 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onFinish }) => {
         onClick={handleAutoGenerate}
         disabled={isDisabled}
         title={disabled ? "请先在核心设定中完成标题、主题和类型" : ""}
-        className={`w-full mb-8 relative overflow-hidden group p-4 rounded-lg transition-all active:scale-[0.99] ${
-          isDisabled
-            ? "bg-gray-200 text-gray-400 cursor-not-allowed shadow-none"
-            : "bg-white text-primary border border-primary hover:bg-gray-50"
-        }`}
+        className={`w-full mb-8 relative overflow-hidden group p-4 rounded-lg transition-all active:scale-[0.99] ${isDisabled
+          ? "bg-gray-200 text-gray-400 cursor-not-allowed shadow-none"
+          : "bg-white text-primary border border-primary hover:bg-gray-50"
+          }`}
       >
         <div className="relative flex items-center justify-center gap-3">
           {isGenerating ? (
             <Sparkles className="w-5 h-5 animate-spin" />
           ) : (
             <Wand2
-              className={`w-5 h-5 ${
-                isDisabled ? "text-gray-400" : "text-primary"
-              }`}
+              className={`w-5 h-5 ${isDisabled ? "text-gray-400" : "text-primary"
+                }`}
             />
           )}
           <span className="font-serif font-bold tracking-wide">
@@ -365,7 +458,23 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onFinish }) => {
       case "CHARACTERS":
         return (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <ClearStepButton />
+            <div className="flex justify-between items-center mb-2">
+              <button
+                onClick={initRenameMap}
+                disabled={bible.characters.length === 0}
+                className="flex items-center text-xs text-gray-400 hover:text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <RefreshCw className="w-3 h-3 mr-1.5" />
+                一键更新人名
+              </button>
+              <button
+                onClick={() => setShowClearModal(true)}
+                className="flex items-center text-xs text-gray-400 hover:text-red-500 transition-colors"
+              >
+                <RotateCcw className="w-3 h-3 mr-1.5" />
+                清空本页
+              </button>
+            </div>
             <AutoGenButton label="一键智能生成角色表" disabled={!isCoreReady} />
             <div className="space-y-8">
               {bible.characters.map((char, index) => (
@@ -678,11 +787,10 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onFinish }) => {
               <button
                 key={step.id}
                 onClick={() => setCurrentStep(step.id)}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-full text-sm font-medium transition-all duration-300 ${
-                  isActive
-                    ? "bg-white text-black shadow-sm ring-1 ring-black/5"
-                    : "text-gray-500 hover:text-gray-900 hover:text-primary"
-                }`}
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-full text-sm font-medium transition-all duration-300 ${isActive
+                  ? "bg-white text-black shadow-sm ring-1 ring-black/5"
+                  : "text-gray-500 hover:text-gray-900 hover:text-primary"
+                  }`}
               >
                 <step.icon
                   className={`w-4 h-4 ${isActive ? "" : "opacity-70"}`}
@@ -788,6 +896,87 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onFinish }) => {
                 disabled={isClearing}
               >
                 {isClearing ? "正在删除..." : "确认清空"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rename Characters Modal */}
+      {showRenameModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-8 border border-gray-100 transform transition-all scale-100 max-h-[80vh] flex flex-col">
+            <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <ArrowRightLeft className="w-5 h-5 text-primary" />
+                </div>
+                <h3 className="text-xl font-serif font-bold text-primary">
+                  一键更新人名
+                </h3>
+              </div>
+              <button
+                onClick={() => {
+                  setShowRenameModal(false);
+                  setRenameMap({});
+                }}
+                className="text-gray-400 hover:text-primary transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-secondary text-sm mb-6 leading-relaxed">
+              修改下方的角色名称，保存后将自动替换所有设定（核心设定、角色描述、大纲等）中出现的旧名字。
+            </p>
+
+            <div className="flex-1 overflow-y-auto space-y-4 mb-6 pr-2">
+              {Object.entries(renameMap).map(([oldName, newName]) => (
+                <div key={oldName} className="flex items-center gap-3">
+                  <div className="flex-1 bg-gray-50 border border-border rounded-md px-3 py-2 text-sm text-secondary">
+                    {oldName}
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
+                  <input
+                    type="text"
+                    value={newName}
+                    onChange={(e) =>
+                      setRenameMap((prev) => ({
+                        ...prev,
+                        [oldName]: e.target.value,
+                      }))
+                    }
+                    placeholder="输入新名称"
+                    className="flex-1 bg-white border border-border rounded-md px-3 py-2 text-sm text-primary placeholder-gray-300 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                  />
+                </div>
+              ))}
+
+              {Object.keys(renameMap).length === 0 && (
+                <div className="text-center py-8 text-secondary text-sm">
+                  暂无可更新的角色名称
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3 pt-4 border-t border-border">
+              <Button
+                variant="secondary"
+                className="flex-1"
+                onClick={() => {
+                  setShowRenameModal(false);
+                  setRenameMap({});
+                }}
+              >
+                取消
+              </Button>
+              <Button
+                variant="primary"
+                className="flex-1"
+                onClick={executeRename}
+                disabled={Object.keys(renameMap).length === 0}
+              >
+                确认更新
               </Button>
             </div>
           </div>

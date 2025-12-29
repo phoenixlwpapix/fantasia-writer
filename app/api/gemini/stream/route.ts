@@ -15,7 +15,7 @@ export async function POST(req: Request) {
       };
 
     const ai = getAI();
-    const model = "gemini-3-pro-preview";
+    const model = "gemini-3-flash-preview";
 
     const targetChapter = bible.outline.find((c) => c.id === chapterId);
     if (!targetChapter)
@@ -85,9 +85,8 @@ export async function POST(req: Request) {
       2. Word count target: ${wordCountTarget} words (Chinese characters).
       3. Style: Follow the "Writing Instructions" in the Bible strictly.
       4. **CONTINUITY IS CRITICAL**: 
-         - IF this is not the first chapter, you MUST start exactly where the previous chapter ended (${
-           previousLocation || "unknown"
-         }).
+         - IF this is not the first chapter, you MUST start exactly where the previous chapter ended (${previousLocation || "unknown"
+      }).
          - Ensure consistency with previously acquired items and character knowledge.
       CRITICAL STYLE ADJUSTMENTS (Addressing feedback):
       1. **TIGHT PACING (节奏紧凑)**: Avoid dragging scenes. Cut unnecessary transitions. Every paragraph must advance the plot or deepen the conflict.
