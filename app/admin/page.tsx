@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   Users,
@@ -129,6 +129,17 @@ export default function AdminDashboard() {
 
   const [timeRange, setTimeRange] = useState<"7days" | "30days">("7days");
   const [fullChartData, setFullChartData] = useState<ChartDataPoint[]>([]);
+
+  // 使用 useMemo 缓存搜索过滤结果
+  const filteredUsers = useMemo(() => {
+    if (!searchTerm) return users;
+    const term = searchTerm.toLowerCase();
+    return users.filter(
+      (u) =>
+        u.email.toLowerCase().includes(term) ||
+        u.id.toLowerCase().includes(term)
+    );
+  }, [users, searchTerm]);
 
   // Load data ONLY once on component mount
   useEffect(() => {
@@ -418,9 +429,7 @@ export default function AdminDashboard() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
-                        {users
-                          .filter((u) => u.email.includes(searchTerm))
-                          .map((user) => (
+                        {filteredUsers.map((user) => (
                             <tr
                               key={user.id}
                               className="hover:bg-gray-50/50 transition-colors"
@@ -505,9 +514,7 @@ export default function AdminDashboard() {
 
                   {/* Mobile Card View */}
                   <div className="md:hidden space-y-4">
-                    {users
-                      .filter((u) => u.email.includes(searchTerm))
-                      .map((user) => (
+                    {filteredUsers.map((user) => (
                         <div
                           key={user.id}
                           className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
@@ -609,14 +616,8 @@ export default function AdminDashboard() {
                   {/* Pagination (Mock) */}
                   <div className="p-4 border-t border-gray-200 flex justify-between items-center text-sm text-gray-500">
                     <span>
-                      显示 1 至{" "}
-                      {Math.min(
-                        10,
-                        users.filter((u) => u.email.includes(searchTerm)).length
-                      )}{" "}
-                      条，共{" "}
-                      {users.filter((u) => u.email.includes(searchTerm)).length}{" "}
-                      条
+                      显示 1 至 {Math.min(10, filteredUsers.length)} 条，共{" "}
+                      {filteredUsers.length} 条
                     </span>
                     <div className="flex gap-2">
                       <button

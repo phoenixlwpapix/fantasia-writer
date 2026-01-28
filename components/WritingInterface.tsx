@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import Link from "next/link";
 import { useStory } from "./StoryProvider";
@@ -73,6 +73,10 @@ export const WritingInterface: React.FC<WritingInterfaceProps> = ({
 
   // Ref to track the current selected chapter ID for async operations
   const selectedChapterIdRef = useRef<string | null>(null);
+
+  // Refs for batched streaming updates
+  const contentRef = useRef('');
+  const rafIdRef = useRef<number | null>(null);
 
   // Initialize selection
   useEffect(() => {
@@ -153,27 +157,32 @@ export const WritingInterface: React.FC<WritingInterfaceProps> = ({
       );
 
       let fullContent = "";
+      contentRef.current = '';
 
       for await (const chunk of streamResponse) {
         const c = chunk as GenerateContentResponse;
         const text = c.text || "";
         fullContent += text;
+        contentRef.current = fullContent;
 
-        currentChapter = {
-          ...currentChapter,
-          content: fullContent,
-          wordCount: fullContent.replace(/\s/g, "").length,
-        };
-
-        // Update state incrementally
-        setChapters((prev) =>
-          prev.map((ch) => {
-            if (ch.outlineId === currentGeneratingId) {
-              return currentChapter;
-            }
-            return ch;
-          })
-        );
+        // 使用 requestAnimationFrame 批量更新，避免每个 chunk 都触发渲染
+        if (!rafIdRef.current) {
+          rafIdRef.current = requestAnimationFrame(() => {
+            const batchedContent = contentRef.current;
+            setChapters((prev) =>
+              prev.map((ch) =>
+                ch.outlineId === currentGeneratingId
+                  ? {
+                      ...ch,
+                      content: batchedContent,
+                      wordCount: batchedContent.replace(/\s/g, "").length,
+                    }
+                  : ch
+              )
+            );
+            rafIdRef.current = null;
+          });
+        }
 
         // Auto scroll to bottom of content area ONLY if we are still viewing the chapter being generated
         if (
@@ -184,44 +193,47 @@ export const WritingInterface: React.FC<WritingInterfaceProps> = ({
         }
       }
 
+      // 确保最后的内容被渲染
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
+      currentChapter = {
+        ...currentChapter,
+        content: fullContent,
+        wordCount: fullContent.replace(/\s/g, "").length,
+      };
+      setChapters((prev) =>
+        prev.map((ch) =>
+          ch.outlineId === currentGeneratingId ? currentChapter : ch
+        )
+      );
+
       setGeneratingId(null);
       setAnalyzingId(currentGeneratingId);
 
-      // 2. Analyze Context (Post-processing)
-      // This ensures context is updated after rewrite
-      const metadata = await analyzeChapterContext(
-        fullContent,
-        chapterOutline.title
-      );
+      // 2. 并行执行分析和保存（分析不依赖保存结果）
+      const supabase = createClient();
+      const [metadata, savedId] = await Promise.all([
+        analyzeChapterContext(fullContent, chapterOutline.title),
+        bible.id
+          ? saveChapter(supabase, currentChapter, bible.id)
+          : Promise.resolve(null),
+      ]);
 
+      // 用 metadata 和 savedId 更新章节
       currentChapter = {
         ...currentChapter,
         metadata,
+        ...(savedId ? { id: savedId } : {}),
       };
 
-      // Update state with metadata
+      // Update state with metadata and saved id
       setChapters((prev) =>
         prev.map((c) =>
           c.outlineId === currentGeneratingId ? currentChapter : c
         )
       );
-
-      // Auto-save chapter and memory to database
-      const finalChapter = currentChapter;
-
-      if (bible.id) {
-        const supabase = createClient();
-        const savedId = await saveChapter(supabase, finalChapter, bible.id);
-        if (savedId) {
-          currentChapter = { ...currentChapter, id: savedId };
-          // Update the chapter id in state to match database
-          setChapters((prev) =>
-            prev.map((c) =>
-              c.outlineId === currentGeneratingId ? currentChapter : c
-            )
-          );
-        }
-      }
     } catch (e) {
       console.error("Failed to generate", e);
       setGeneratingId(null);

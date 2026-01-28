@@ -14,7 +14,6 @@ import {
   createBook,
   updateBook,
   loadBook,
-  loadUserBooks,
   deleteBook,
   saveChapter,
   loadChapters,
@@ -23,6 +22,11 @@ import {
   getUserCredits,
   checkIsAdmin,
 } from "../lib/supabase-db";
+import {
+  useProjects,
+  optimisticDeleteProject,
+  optimisticUpdateProject,
+} from "../lib/hooks/useProjects";
 import { createClient } from "@/lib/supabase/client";
 
 const DEFAULT_BIBLE: StoryBible = {
@@ -90,8 +94,11 @@ interface StoryContextType {
   deleteProject: (id: string) => void;
   updateProjectMetadata: (id: string, data: Partial<ProjectMetadata>) => void;
 
-  // Dirty state for auto-save
+  // Manual save for setup wizard
+  saveProject: () => Promise<boolean>;
+  isDirty: boolean;
   markDirty: () => void;
+  markClean: () => void;
 }
 
 const StoryContext = createContext<StoryContextType | undefined>(undefined);
@@ -103,9 +110,10 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({
 }) => {
   const router = useRouter();
 
+  // Projects from SWR (cached, deduplicated)
+  const { projects, isLoading: loadingProjects, mutate: mutateProjects } = useProjects();
+
   // App State
-  const [projects, setProjects] = useState<ProjectMetadata[]>([]);
-  const [loadingProjects, setLoadingProjects] = useState(true);
   const [loadingProject, setLoadingProject] = useState(false);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
 
@@ -113,8 +121,17 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({
   const [bible, setBible] = useState<StoryBible>(DEFAULT_BIBLE);
   const [chapters, setChapters] = useState<StoryChapter[]>([]);
 
-  // Track if there are unsaved changes (prevents auto-save on initial load)
+  // Track if there are unsaved changes
   const [isDirty, setIsDirty] = useState(false);
+
+  // Wrapper for setBible that also marks dirty (used by external components)
+  const setBibleAndMarkDirty = useCallback(
+    (value: React.SetStateAction<StoryBible>) => {
+      setBible(value);
+      setIsDirty(true);
+    },
+    []
+  );
 
   // User Info State
   const [user, setUser] = useState<any>(null);
@@ -125,10 +142,10 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({
   // Admin Status State
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
 
-  // Load user projects from Supabase on mount and auth changes
+  // Load user info, credits, and admin status on mount
+  // Projects are handled by SWR via useProjects hook
   useEffect(() => {
-    const loadProjects = async () => {
-      setLoadingProjects(true);
+    const loadUserData = async () => {
       try {
         const supabase = createClient();
         const {
@@ -137,8 +154,6 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({
 
         if (user) {
           setUser(user);
-          const userProjects = await loadUserBooks(supabase);
-          setProjects(userProjects);
 
           // Initialize user credits if not exists
           await initializeUserCredits(supabase);
@@ -154,26 +169,21 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({
           setIsAdmin(adminStatus);
         } else {
           setUser(null);
-          setProjects([]);
           setUserCredits(0);
         }
-      } finally {
-        setLoadingProjects(false);
+      } catch (error) {
+        console.error("Failed to load user data:", error);
       }
     };
 
-    loadProjects();
-
-    // ❌ Removed onAuthStateChange listener to prevent unnecessary reloads
-    // when switching browser tabs (Supabase triggers SIGNED_IN on focus)
-    // Auth state changes are handled by component re-mounting on route changes
+    loadUserData();
   }, []);
 
-  // Auto-save current project to Supabase (only when there are actual changes)
-  useEffect(() => {
-    if (!currentProjectId || !isDirty) return;
+  // Manual save function for setup wizard
+  const saveProject = useCallback(async (): Promise<boolean> => {
+    if (!currentProjectId) return false;
 
-    const autoSave = async () => {
+    try {
       const supabase = createClient();
       // Save book data
       await updateBook(supabase, currentProjectId, bible);
@@ -189,16 +199,12 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({
 
       // Reset dirty flag after successful save
       setIsDirty(false);
-
-      // Refresh projects list to update metadata
-      const updatedProjects = await loadUserBooks(supabase);
-      setProjects(updatedProjects);
-    };
-
-    // Debounce auto-save
-    const timeoutId = setTimeout(autoSave, 1000);
-    return () => clearTimeout(timeoutId);
-  }, [bible, chapters, currentProjectId, isDirty]);
+      return true;
+    } catch (error) {
+      console.error("Failed to save project:", error);
+      return false;
+    }
+  }, [bible, chapters, currentProjectId]);
 
   const createProject = () => {
     router.push("/projects/new");
@@ -218,6 +224,8 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({
         const loadedChapters = await loadChapters(supabase, id);
         setChapters(loadedChapters);
         setCurrentProjectId(id);
+        // Reset dirty state after loading (this is not a user modification)
+        setIsDirty(false);
       } else {
         console.error("Failed to load project");
       }
@@ -233,21 +241,30 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({
   };
 
   const deleteProject = async (id: string) => {
+    // 乐观更新：先更新 UI
+    optimisticDeleteProject(id);
+
+    // 如果删除的是当前项目，清理状态并跳转
+    if (currentProjectId === id) {
+      setCurrentProjectId(null);
+      router.push("/projects");
+    }
+
+    // 后台执行实际删除
     const supabase = createClient();
     const success = await deleteBook(supabase, id);
-    if (success) {
-      const newProjects = projects.filter((p) => p.id !== id);
-      setProjects(newProjects);
-
-      if (currentProjectId === id) {
-        setCurrentProjectId(null);
-        router.push("/projects");
-      }
+    if (!success) {
+      // 删除失败，重新获取数据恢复
+      mutateProjects();
     }
   };
 
   const markDirty = useCallback(() => {
     setIsDirty(true);
+  }, []);
+
+  const markClean = useCallback(() => {
+    setIsDirty(false);
   }, []);
 
   const updateCore = useCallback((data: Partial<StoryBible["core"]>) => {
@@ -268,10 +285,8 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({
 
   const updateProjectMetadata = useCallback(
     async (id: string, data: Partial<ProjectMetadata>) => {
-      // Update local state
-      setProjects((prev) =>
-        prev.map((p) => (p.id === id ? { ...p, ...data } : p))
-      );
+      // 乐观更新：先更新 UI
+      optimisticUpdateProject(id, data);
 
       // Save spine color to database if provided
       if (data.spineColor) {
@@ -286,7 +301,7 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({
     <StoryContext.Provider
       value={{
         bible,
-        setBible,
+        setBible: setBibleAndMarkDirty,
         updateCore,
         updateInstruction,
         chapters,
@@ -305,7 +320,10 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({
         closeProject,
         deleteProject,
         updateProjectMetadata,
+        saveProject,
+        isDirty,
         markDirty,
+        markClean,
       }}
     >
       {children}
