@@ -1,6 +1,4 @@
 import React, { useState } from "react";
-import Link from "next/link";
-import { Button } from "./ui/UIComponents";
 import { generateFullStoryBible } from "../services/gemini";
 import { CreditConfirmationModal } from "./CreditConfirmationModal";
 import { deductUserCredits } from "../lib/supabase-db";
@@ -13,12 +11,11 @@ import {
   Zap,
   PenTool,
   ArrowRight,
-  Home,
 } from "lucide-react";
 
 interface ProjectCreationSelectorProps {
   onManualStart: () => void;
-  onAIGenerate: (bible: any) => void;
+  onAIGenerate: (bible: any) => Promise<void>;
 }
 
 export const ProjectCreationSelector: React.FC<
@@ -29,6 +26,7 @@ export const ProjectCreationSelector: React.FC<
   const [quickChapterCount, setQuickChapterCount] = useState<number>(8);
   const [quickWordCount, setQuickWordCount] = useState<number>(1500);
   const [isFullGenerating, setIsFullGenerating] = useState(false);
+  const [isSavingAndRedirecting, setIsSavingAndRedirecting] = useState(false);
 
   // Credits Modal State
   const [isCreditModalOpen, setIsCreditModalOpen] = useState(false);
@@ -87,25 +85,18 @@ export const ProjectCreationSelector: React.FC<
         data.chapterCount,
         data.wordCount
       );
-      onAIGenerate(newBible);
+      setIsFullGenerating(false);
+      setIsSavingAndRedirecting(true);
+      await onAIGenerate(newBible);
     } catch (e) {
       console.error(e);
-      // Handle error, perhaps show alert
-    } finally {
       setIsFullGenerating(false);
+      setIsSavingAndRedirecting(false);
     }
   };
 
   return (
     <div className="max-w-5xl mx-auto py-16 px-6 animate-in fade-in duration-500">
-      <div className="mb-8">
-        <Link href="/projects">
-          <Button variant="ghost" size="sm" icon={<Home className="w-4 h-4" />}>
-            返回项目列表
-          </Button>
-        </Link>
-      </div>
-
       <div className="text-center mb-16">
         <h1 className="text-4xl font-serif font-medium mb-4">
           开始您的创作之旅
@@ -138,7 +129,7 @@ export const ProjectCreationSelector: React.FC<
                 placeholder="例如：一个无法入睡的侦探，在2080年的上海寻找被窃取的梦境..."
                 value={quickIdea}
                 onChange={(e) => setQuickIdea(e.target.value)}
-                disabled={isFullGenerating}
+                disabled={isFullGenerating || isSavingAndRedirecting}
               />
 
               {/* Chapter and Word Count Inputs */}
@@ -177,15 +168,19 @@ export const ProjectCreationSelector: React.FC<
 
               <button
                 onClick={handleFullGenerate}
-                disabled={!quickIdea.trim() || isFullGenerating}
+                disabled={!quickIdea.trim() || isFullGenerating || isSavingAndRedirecting}
                 className="w-full bg-white text-black font-bold py-3 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center transition-all active:scale-[0.98]"
               >
-                {isFullGenerating ? (
+                {isFullGenerating || isSavingAndRedirecting ? (
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />
                 ) : (
                   <Zap className="w-4 h-4 mr-2 fill-black" />
                 )}
-                {isFullGenerating ? "正在构建世界..." : "立即生成"}
+                {isFullGenerating
+                  ? "正在构建世界..."
+                  : isSavingAndRedirecting
+                    ? "正在进入设定集..."
+                    : "立即生成"}
               </button>
             </div>
           </div>
@@ -193,9 +188,9 @@ export const ProjectCreationSelector: React.FC<
 
         {/* Option 2: Manual Setup */}
         <div
-          onClick={() => !isFullGenerating && onManualStart()}
+          onClick={() => !isFullGenerating && !isSavingAndRedirecting && onManualStart()}
           className={`bg-white border border-gray-200 rounded-2xl p-8 shadow-sm transition-all duration-300 flex flex-col relative overflow-hidden ${
-            isFullGenerating
+            isFullGenerating || isSavingAndRedirecting
               ? "opacity-40 cursor-not-allowed grayscale pointer-events-none"
               : "hover:shadow-xl hover:border-black/20 cursor-pointer group"
           }`}
@@ -204,6 +199,7 @@ export const ProjectCreationSelector: React.FC<
             <div
               className={`w-12 h-12 bg-gray-50 rounded-xl flex items-center justify-center transition-colors duration-300 shrink-0 text-primary ${
                 !isFullGenerating &&
+                !isSavingAndRedirecting &&
                 "group-hover:bg-black group-hover:text-white"
               }`}
             >
@@ -220,7 +216,7 @@ export const ProjectCreationSelector: React.FC<
           <div className="mt-auto">
             <div
               className={`w-full py-3 rounded-lg border border-gray-200 text-center font-medium text-primary transition-all duration-300 flex items-center justify-center gap-2 ${
-                isFullGenerating
+                isFullGenerating || isSavingAndRedirecting
                   ? "bg-gray-100 text-gray-400 border-gray-100"
                   : "group-hover:bg-black group-hover:text-white group-hover:border-black"
               }`}

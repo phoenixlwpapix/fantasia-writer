@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import Link from "next/link";
+import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useStory } from "./StoryProvider";
 import {
   SetupStep,
@@ -48,6 +48,7 @@ interface SetupWizardProps {
 }
 
 export const SetupWizard: React.FC<SetupWizardProps> = ({ onFinish }) => {
+  const router = useRouter();
   const {
     bible,
     setBible,
@@ -56,9 +57,40 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onFinish }) => {
     userCredits,
     setUserCredits,
     currentProjectId,
+    saveProject,
+    isDirty,
+    markClean,
   } = useStory();
 
   const [currentStep, setCurrentStep] = useState<SetupStep>("CORE");
+  const [showUnsavedModal, setShowUnsavedModal] = useState(false);
+
+  // Warn user before leaving page with unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirty) {
+        e.preventDefault();
+        e.returnValue = "";
+        return "";
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isDirty]);
+
+  const handleBackToProjects = () => {
+    if (isDirty) {
+      setShowUnsavedModal(true);
+    } else {
+      router.push("/projects");
+    }
+  };
+
+  const confirmLeaveWithoutSaving = () => {
+    setShowUnsavedModal(false);
+    router.push("/projects");
+  };
   const [isGenerating, setIsGenerating] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [showClearModal, setShowClearModal] = useState(false);
@@ -142,6 +174,8 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onFinish }) => {
             ...bible,
             outline: formattedOutline,
           });
+          // 重置 isDirty（已保存）
+          markClean();
         }
       } else if (step === "INSTRUCTIONS") {
         const newInstructions = await generateWritingInstructions(bible);
@@ -202,6 +236,8 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onFinish }) => {
       if (currentProjectId) {
         const supabase = createClient();
         await updateBook(supabase, currentProjectId, clearedBible);
+        // 重置 isDirty（已保存）
+        markClean();
       }
     } finally {
       setIsClearing(false);
@@ -232,7 +268,9 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onFinish }) => {
     }));
   };
 
-  const handleEnterWriter = () => {
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleEnterWriter = async () => {
     const hasProtagonist = bible.characters.some(
       (c) => c.role === "Protagonist"
     );
@@ -240,7 +278,7 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onFinish }) => {
     const errors: string[] = [];
 
     if (!hasProtagonist) {
-      errors.push("• 您的故事缺少“主角”，请在角色设定中添加。");
+      errors.push("• 您的故事缺少「主角」，请在角色设定中添加。");
     }
 
     if (!hasOutline) {
@@ -250,6 +288,20 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onFinish }) => {
     if (errors.length > 0) {
       setValidationError(errors.join("\n\n"));
       return;
+    }
+
+    // Only save if there are unsaved changes
+    if (isDirty) {
+      setIsSaving(true);
+      try {
+        const success = await saveProject();
+        if (!success) {
+          setValidationError("保存失败，请重试。");
+          return;
+        }
+      } finally {
+        setIsSaving(false);
+      }
     }
 
     // Call the parent callback to switch view
@@ -343,6 +395,8 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onFinish }) => {
           characters: updatedCharacters,
           outline: updatedOutline,
         });
+        // 重置 isDirty（已保存）
+        markClean();
       }
     } finally {
       // 无论成功或失败，都关闭 modal 并重置状态
@@ -769,11 +823,14 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onFinish }) => {
   return (
     <div className="max-w-4xl mx-auto py-10 px-6 animate-in fade-in duration-500">
       <div className="mb-8 flex items-center justify-between">
-        <Link href="/projects">
-          <Button variant="ghost" size="sm" icon={<Home className="w-4 h-4" />}>
-            返回项目列表
-          </Button>
-        </Link>
+        <Button
+          variant="ghost"
+          size="sm"
+          icon={<Home className="w-4 h-4" />}
+          onClick={handleBackToProjects}
+        >
+          返回项目列表
+        </Button>
       </div>
 
       <div className="mb-10 text-center">
@@ -829,8 +886,13 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onFinish }) => {
 
         <div className="flex gap-3">
           {currentStep === "INSTRUCTIONS" ? (
-            <Button size="lg" variant="accent" onClick={handleEnterWriter}>
-              进入创意工作室
+            <Button
+              size="lg"
+              variant="accent"
+              onClick={handleEnterWriter}
+              disabled={isSaving}
+            >
+              {isSaving ? "正在保存..." : "进入创意工作室"}
             </Button>
           ) : (
             <Button
@@ -1000,6 +1062,41 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onFinish }) => {
         title="AI 智能生成"
         description="AI 将根据当前信息智能生成设定内容，需要消耗积分。"
       />
+
+      {/* Unsaved Changes Modal */}
+      {showUnsavedModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full p-8 border border-gray-100 transform transition-all scale-100">
+            <div className="flex flex-col items-center text-center mb-6">
+              <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center mb-4">
+                <AlertCircle className="w-6 h-6 text-amber-600" />
+              </div>
+              <h3 className="text-xl font-serif font-bold text-primary">
+                有未保存的更改
+              </h3>
+            </div>
+            <p className="text-secondary text-sm text-center mb-8 leading-relaxed">
+              您有未保存的设定更改。离开此页面将丢失这些更改。
+            </p>
+            <div className="flex gap-3">
+              <Button
+                variant="secondary"
+                className="flex-1"
+                onClick={() => setShowUnsavedModal(false)}
+              >
+                继续编辑
+              </Button>
+              <Button
+                variant="primary"
+                className="flex-1 bg-amber-600 hover:bg-amber-700 border-amber-600 text-white"
+                onClick={confirmLeaveWithoutSaving}
+              >
+                放弃更改
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
