@@ -342,8 +342,8 @@ export default function AdminDashboard() {
                                       </span>
                                       <span className="font-mono font-medium">
                                         {entry.name === 'words'
-                                          ? (entry.value >= 1000 ? `${(entry.value / 1000).toFixed(1)}k` : entry.value)
-                                          : entry.value}
+                                          ? ((entry.value ?? 0) >= 1000 ? `${((entry.value ?? 0) / 1000).toFixed(1)}k` : entry.value ?? 0)
+                                          : entry.value ?? 0}
                                       </span>
                                     </div>
                                   ))}
