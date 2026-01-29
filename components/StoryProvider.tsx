@@ -9,9 +9,9 @@ import React, {
   useCallback,
 } from "react";
 import { useRouter } from "next/navigation";
+import { User } from "@supabase/supabase-js";
 import { StoryBible, StoryChapter, ProjectMetadata } from "../lib/types";
 import {
-  createBook,
   updateBook,
   loadBook,
   deleteBook,
@@ -61,6 +61,8 @@ const DEFAULT_BIBLE: StoryBible = {
     sensoryDetails: "",
     keyElements: "",
     avoid: "",
+    stylePresetId: undefined,
+    customPromptModifiers: undefined,
   },
 };
 
@@ -73,7 +75,7 @@ interface StoryContextType {
   setChapters: React.Dispatch<React.SetStateAction<StoryChapter[]>>;
 
   // User Info
-  user: any;
+  user: User | null;
 
   // User Credits
   userCredits: number;
@@ -134,7 +136,7 @@ export const StoryProvider: React.FC<{ children: ReactNode }> = ({
   );
 
   // User Info State
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
 
   // User Credits State
   const [userCredits, setUserCredits] = useState<number>(0);

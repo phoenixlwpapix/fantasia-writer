@@ -87,7 +87,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Helper to fill map
-    const processRecords = (records: any[], type: 'users' | 'books' | 'words') => {
+    const processRecords = (records: { created_at: string; word_count?: number }[] | null, type: 'users' | 'books' | 'words') => {
       records?.forEach(record => {
         const dateKey = new Date(record.created_at).toISOString().split('T')[0];
         if (chartDataMap.has(dateKey)) {

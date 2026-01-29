@@ -46,6 +46,8 @@ export interface WritingInstructions {
   sensoryDetails: string;
   keyElements: string;
   avoid: string;
+  stylePresetId?: string; // 预设ID，"custom"表示自定义
+  customPromptModifiers?: string; // 自定义prompt修饰语
 }
 
 export interface ChapterMetadata {

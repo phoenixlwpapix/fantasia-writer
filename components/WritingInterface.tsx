@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import Link from "next/link";
 import { useStory } from "./StoryProvider";
@@ -42,14 +42,8 @@ interface WritingInterfaceProps {
 export const WritingInterface: React.FC<WritingInterfaceProps> = ({
   onEditSetup,
 }) => {
-  const {
-    bible,
-    chapters,
-    setChapters,
-    userCredits,
-    setUserCredits,
-    currentProjectId,
-  } = useStory();
+  const { bible, chapters, setChapters, userCredits, setUserCredits } =
+    useStory();
   const { showToast } = useToast();
   const [generatingId, setGeneratingId] = useState<string | null>(null);
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
@@ -212,21 +206,27 @@ export const WritingInterface: React.FC<WritingInterfaceProps> = ({
       setGeneratingId(null);
       setAnalyzingId(currentGeneratingId);
 
-      // 2. 并行执行分析和保存（分析不依赖保存结果）
+      // 2. 先分析章节，再保存（确保 metadata 被正确保存到数据库）
       const supabase = createClient();
-      const [metadata, savedId] = await Promise.all([
-        analyzeChapterContext(fullContent, chapterOutline.title),
-        bible.id
-          ? saveChapter(supabase, currentChapter, bible.id)
-          : Promise.resolve(null),
-      ]);
+      const metadata = await analyzeChapterContext(
+        fullContent,
+        chapterOutline.title
+      );
 
-      // 用 metadata 和 savedId 更新章节
+      // 用 metadata 更新章节
       currentChapter = {
         ...currentChapter,
         metadata,
-        ...(savedId ? { id: savedId } : {}),
       };
+
+      // 3. 保存章节（包含 metadata）
+      const savedId = bible.id
+        ? await saveChapter(supabase, currentChapter, bible.id)
+        : null;
+
+      if (savedId) {
+        currentChapter = { ...currentChapter, id: savedId };
+      }
 
       // Update state with metadata and saved id
       setChapters((prev) =>

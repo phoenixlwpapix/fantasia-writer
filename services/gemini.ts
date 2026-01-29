@@ -5,11 +5,12 @@ import {
   Character,
   WritingInstructions,
   ChapterMetadata,
+  ChapterOutline,
 } from "../lib/types";
 
 // --- CLIENT SIDE API CALLS ---
 
-async function callApi(action: string, payload: any) {
+async function callApi(action: string, payload: Record<string, unknown>) {
   const response = await fetch("/api/gemini", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -59,16 +60,10 @@ export const analyzeChapterContext = async (
   return callApi("analyzeChapterContext", { content, title });
 };
 
-// Simple non-streaming generation
-export const generateChapter = async (
-  bible: StoryBible,
-  chapterId: string,
-  previousChapters: StoryChapter[]
-): Promise<string> => {
-  // We didn't explicitly implement a separate non-streaming API route for this since the UI uses streaming,
-  // but we can map it to a hypothetical action if needed.
-  // However, the current UI mostly uses streaming. If legacy support is needed, we'd add it to route.ts.
-  // For now, let's assuming we don't strictly need this OR map it to a single-shot request.
+// Simple non-streaming generation (unused - kept for legacy compatibility)
+export const generateChapter = async (): Promise<string> => {
+  // We didn't explicitly implement a separate non-streaming API route for this since the UI uses streaming.
+  // The current UI uses streaming. If legacy support is needed, we'd add it to route.ts.
   throw new Error("Please use generateChapterStream");
 };
 
@@ -110,6 +105,6 @@ export async function* generateChapterStream(
 
 export const generateFullOutline = async (
   bible: Partial<StoryBible>
-): Promise<any[]> => {
+): Promise<Pick<ChapterOutline, "title" | "summary">[]> => {
   return callApi("generateFullOutline", { bible });
 };

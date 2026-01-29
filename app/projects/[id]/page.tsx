@@ -9,7 +9,7 @@ import Loading from "../../loading";
 
 export default function ProjectPage() {
   const params = useParams();
-  const { loadProject, bible, chapters, currentProjectId, loadingProject } =
+  const { loadProject, chapters, currentProjectId, loadingProject } =
     useStory();
   const [viewMode, setViewMode] = useState<"SETUP" | "WRITER">("SETUP");
   const hasCheckedContent = useRef(false);
@@ -18,6 +18,7 @@ export default function ProjectPage() {
     if (params.id) {
       loadProject(params.id as string);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id]);
 
   // Check if project has content and switch to writer mode

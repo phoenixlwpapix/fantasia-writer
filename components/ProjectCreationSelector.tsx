@@ -3,7 +3,7 @@ import { generateFullStoryBible } from "../services/gemini";
 import { CreditConfirmationModal } from "./CreditConfirmationModal";
 import { deductUserCredits } from "../lib/supabase-db";
 import { createClient } from "../lib/supabase/client";
-import { GenerationType, GENERATION_COSTS } from "../lib/types";
+import { GenerationType, GENERATION_COSTS, StoryBible } from "../lib/types";
 import { useStory } from "./StoryProvider";
 import {
   Loader2,
@@ -15,7 +15,7 @@ import {
 
 interface ProjectCreationSelectorProps {
   onManualStart: () => void;
-  onAIGenerate: (bible: any) => Promise<void>;
+  onAIGenerate: (bible: StoryBible) => Promise<void>;
 }
 
 export const ProjectCreationSelector: React.FC<

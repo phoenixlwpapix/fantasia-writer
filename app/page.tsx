@@ -92,7 +92,7 @@ const ConsoleSimulator: React.FC = () => {
             currentText += segment.text[charIndex];
             setDisplayedLines((prev) => {
               const newLines = [...prev];
-              const currentElement = newLines[lineIndex] as any;
+              const currentElement = newLines[lineIndex] as React.ReactElement<{ children?: React.ReactNode }>;
               const currentLineContent = React.Children.toArray(
                 currentElement.props?.children
               );
@@ -129,6 +129,7 @@ const ConsoleSimulator: React.FC = () => {
     return () => {
       isMounted = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasStarted]);
 
   return (
@@ -185,7 +186,7 @@ export default function LandingPage() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) {
         router.replace("/projects");
       }
@@ -555,8 +556,8 @@ export default function LandingPage() {
                 <Star className="w-4 h-4 fill-current" />
               </div>
               <p className="font-serif italic text-lg mb-6 text-primary">
-                "Fantasia
-                解决了困扰我多年的'中间段落塌陷'问题。它的设定集功能让我的角色即使在第50章依然性格鲜明。"
+                &quot;Fantasia
+                解决了困扰我多年的&apos;中间段落塌陷&apos;问题。它的设定集功能让我的角色即使在第50章依然性格鲜明。&quot;
               </p>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center font-bold text-gray-500">

@@ -80,6 +80,7 @@ export default function ProjectDashboard() {
   // Clear current project state when entering dashboard to prevent overwrites
   useEffect(() => {
     closeProject();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleConfirmDelete = () => {

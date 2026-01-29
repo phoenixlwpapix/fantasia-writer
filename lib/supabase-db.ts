@@ -56,6 +56,8 @@ export interface InstructionRecord {
   sensory_details?: string;
   key_elements?: string;
   avoid?: string;
+  style_preset_id?: string;
+  custom_prompt_modifiers?: string;
   created_at: string;
 }
 
@@ -161,6 +163,8 @@ export const createBook = async (
     sensory_details: bible.instructions.sensoryDetails,
     key_elements: bible.instructions.keyElements,
     avoid: bible.instructions.avoid,
+    style_preset_id: bible.instructions.stylePresetId,
+    custom_prompt_modifiers: bible.instructions.customPromptModifiers,
   });
 
   if (instrError) console.error("Error creating instructions:", instrError);
@@ -275,6 +279,8 @@ export const updateBook = async (
       sensory_details: bible.instructions.sensoryDetails,
       key_elements: bible.instructions.keyElements,
       avoid: bible.instructions.avoid,
+      style_preset_id: bible.instructions.stylePresetId,
+      custom_prompt_modifiers: bible.instructions.customPromptModifiers,
     },
     { onConflict: "book_id" }
   );
@@ -377,6 +383,8 @@ export const loadBook = async (
       sensoryDetails: instructions?.sensory_details || "",
       keyElements: instructions?.key_elements || "",
       avoid: instructions?.avoid || "",
+      stylePresetId: instructions?.style_preset_id || undefined,
+      customPromptModifiers: instructions?.custom_prompt_modifiers || undefined,
     },
   };
 
@@ -403,6 +411,9 @@ export const loadUserBooks = async (
       updated_at,
       chapters (
         word_count
+      ),
+      outlines (
+        id
       )
     `
     )
@@ -422,10 +433,12 @@ export const loadUserBooks = async (
         0
       ) || 0;
     const chapterCount = book.chapters?.length || 0;
-    const progress = Math.min(
-      100,
-      Math.floor((chapterCount / Math.max(8, 1)) * 100)
-    );
+    const outlineCount = book.outlines?.length || 0;
+    // 进度 = 已生成章节数 / 大纲总章节数
+    const progress =
+      outlineCount > 0
+        ? Math.min(100, Math.floor((chapterCount / outlineCount) * 100))
+        : 0;
 
     return {
       id: book.id,

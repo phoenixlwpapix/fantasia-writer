@@ -1,5 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { StoryBible, StoryChapter } from "@/lib/types";
+import { getPromptModifiers } from "@/lib/style-presets";
 
 const getAI = () => new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -71,6 +72,12 @@ export async function POST(req: Request) {
       `;
     }
 
+    // 获取风格修饰语（预设或自定义）
+    const styleModifiers = getPromptModifiers(
+      bible.instructions.stylePresetId,
+      bible.instructions.customPromptModifiers
+    );
+
     const prompt = `
       You are "Fantasia" (幻境作家), a world-class novelist AI specialized in Chinese creative writing.
       STORY BIBLE (设定集):
@@ -83,16 +90,21 @@ export async function POST(req: Request) {
       STRICT GUIDELINES:
       1. Language: Chinese (Simplified).
       2. Word count target: ${wordCountTarget} words (Chinese characters).
-      3. Style: Follow the "Writing Instructions" in the Bible strictly.
-      4. **CONTINUITY IS CRITICAL**: 
-         - IF this is not the first chapter, you MUST start exactly where the previous chapter ended (${previousLocation || "unknown"
-      }).
+      3. **CONTINUITY IS CRITICAL**:
+         - IF this is not the first chapter, you MUST start exactly where the previous chapter ended (${previousLocation || "unknown"}).
          - Ensure consistency with previously acquired items and character knowledge.
-      CRITICAL STYLE ADJUSTMENTS (Addressing feedback):
-      1. **TIGHT PACING (节奏紧凑)**: Avoid dragging scenes. Cut unnecessary transitions. Every paragraph must advance the plot or deepen the conflict.
-      2. **REDUCE STAGE DIRECTIONS (减少琐碎动作)**: DO NOT over-describe physical movements (e.g., "he nodded," "she took a sip," "he shifted his weight," "he walked to the door"). Focus on the *subtext*, *dialogue*, and *psychological impact* instead of the mechanics of moving bodies.
-      3. **SHOW, DON'T JUST DESCRIBE**: Instead of describing a character looking angry, show them taking a drastic action.
-      4. **HIGH STAKES**: Ensure the chapter ends with tension or a revelation.
+
+      WRITING STYLE REQUIREMENTS (严格遵循用户设定):
+      - 叙事视角: ${bible.instructions.pov || "第三人称有限视角"}
+      - 节奏控制: ${bible.instructions.pacing || "根据情节自然调节"}
+      - 对话风格: ${bible.instructions.dialogueStyle || "自然流畅"}
+      - 感官细节: ${bible.instructions.sensoryDetails || "适度描写"}
+      - 关键意象: ${bible.instructions.keyElements || "无特殊要求"}
+      - 避免事项: ${bible.instructions.avoid || "无特殊禁忌"}
+      - 整体基调: ${bible.core.styleTone || "根据题材自然呈现"}
+
+      ${styleModifiers ? `${styleModifiers}` : ""}
+
       Output ONLY the story content in Markdown format. Do not wrap in code blocks.
       Do not include the chapter title at the top, just the prose.
     `;

@@ -1,13 +1,24 @@
 import { GoogleGenAI } from "@google/genai";
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
-import {
-  StoryBible,
-  StoryChapter,
-  CoreConcept,
-  Character,
-  WritingInstructions,
-} from "@/lib/types";
+import { Character } from "@/lib/types";
+
+interface RawCharacter {
+  id?: string;
+  name: string;
+  role: string;
+  description: string;
+  background: string;
+  motivation: string;
+  arcOrConflict: string;
+}
+
+interface RawOutline {
+  id?: string;
+  title: string;
+  summary: string;
+  isGenerated?: boolean;
+}
 
 const getAI = () => new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -113,7 +124,7 @@ export async function POST(req: Request) {
 
         // Post-processing arrays
         if (result.characters) {
-          result.characters = result.characters.map((c: any, i: number) => ({
+          result.characters = result.characters.map((c: RawCharacter) => ({
             ...c,
             id: randomUUID(),
             role: ["Protagonist", "Antagonist", "Supporting"].includes(c.role)
@@ -125,7 +136,7 @@ export async function POST(req: Request) {
         }
 
         if (result.outline) {
-          result.outline = result.outline.map((c: any, i: number) => ({
+          result.outline = result.outline.map((c: RawOutline) => ({
             ...c,
             id: randomUUID(),
             isGenerated: false,
@@ -219,8 +230,8 @@ export async function POST(req: Request) {
           contents: prompt,
           config: { responseMimeType: "application/json" },
         });
-        const chars = parseJSON(response.text || "[]");
-        const finalChars = chars.map((c: any) => ({
+        const chars = parseJSON(response.text || "[]") as RawCharacter[];
+        const finalChars = chars.map((c: RawCharacter) => ({
           ...c,
           id: randomUUID(),
         }));
@@ -231,27 +242,48 @@ export async function POST(req: Request) {
         const { bible } = payload;
         const model = "gemini-3-flash-preview";
         const prompt = `
-          Role: 文学编辑。
+          Role: 文学编辑，精通各种文学类型的风格把控。
           Context:
-          Core: ${JSON.stringify(bible.core)}
-          Characters: ${JSON.stringify(
+          - 书名: ${bible.core.title}
+          - 主题: ${bible.core.theme}
+          - 类型: ${bible.core.genre}
+          - 基调: ${bible.core.styleTone}
+          - 时代背景: ${bible.core.settingTime}
+          - 世界观: ${bible.core.settingWorld}
+          - 角色: ${JSON.stringify(
           bible.characters.map((c: Character) => c.name + ": " + c.role)
         )}
 
-          Task: 定义写作风格指南。
-          
+          Task: 根据上述小说的类型、主题和基调，选择最匹配的风格预设，并定义写作风格指南。
+
+          可选的风格预设 ID（必须从以下选择一个最匹配的）:
+          - "light-humor": 轻松幽默 - 都市喜剧、轻小说风格
+          - "tense-suspense": 紧张悬疑 - 推理、惊悚风格
+          - "delicate-lyrical": 细腻抒情 - 纯文学、情感向
+          - "hardcore-action": 硬核动作 - 武侠、军事风格
+          - "poetic-artistic": 诗意文艺 - 意识流、实验性风格
+          - "dark-horror": 黑暗恐怖 - 克苏鲁、末世风格
+          - "sweet-romance": 甜蜜浪漫 - 言情、偶像剧风格
+          - "epic-grand": 史诗宏大 - 玄幻、西幻风格
+
+          重要提示：
+          - 先根据题材选择最匹配的预设 ID
+          - 然后基于该预设风格，生成具体的写作指南
+          - 风格必须与小说的类型和基调高度匹配
+
           Strict Guidelines:
           1. Output MUST be valid JSON only.
           2. ALL string values MUST be in Simplified Chinese (简体中文).
-          3. NO English comments.
-          
+          3. stylePresetId MUST be one of the preset IDs listed above (English).
+
           Return a JSON object with these keys:
-          - pov: (string) 叙事视角 (例如："第三人称有限视角")。
-          - pacing: (string) 节奏控制要求 (emphasize fast-paced and tight plotting)。
-          - dialogueStyle: (string) 对话风格特点。
-          - sensoryDetails: (string) 感官描写重点。
-          - keyElements: (string) 反复出现的意象或符号。
-          - avoid: (string) 禁止事项 (Explicitly mention avoiding excessive physical movement descriptions like "nodding", "sighing", "walking").
+          - stylePresetId: (string) 最匹配的预设 ID（必须是上述列表中的一个英文 ID）
+          - pov: (string) 叙事视角
+          - pacing: (string) 节奏控制要求
+          - dialogueStyle: (string) 对话风格特点
+          - sensoryDetails: (string) 感官描写重点
+          - keyElements: (string) 反复出现的意象或符号
+          - avoid: (string) 禁止事项
         `;
 
         const response = await ai.models.generateContent({
@@ -340,7 +372,7 @@ export async function POST(req: Request) {
           World Setting: ${bible.core.settingWorld}
           
           Current Characters:
-          ${JSON.stringify(characters.map((c: any) => ({ name: c.name, role: c.role, desc: c.description })))}
+          ${JSON.stringify(characters.map((c: Character) => ({ name: c.name, role: c.role, desc: c.description })))}
           
           Guidelines:
           1. Provide a NEW name for EACH character.

@@ -3,18 +3,15 @@
 import React from "react";
 import Link from "next/link";
 import {
-  ArrowRight,
   Check,
   Zap,
   BookOpen,
   FileText,
   Sparkles,
   Coins,
-  Crown,
   Star,
   ShieldCheck,
   PenTool,
-  Diamond,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 

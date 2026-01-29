@@ -9,29 +9,24 @@ import {
   TrendingUp,
   Plus,
   Search,
-  MoreHorizontal,
   CreditCard,
   History,
   X,
-  Check,
   ChevronLeft,
   ChevronRight,
   Loader2,
+  LucideIcon,
 } from "lucide-react";
 import {
-  LineChart,
-  Line,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  AreaChart,
-  Area,
   BarChart,
   Bar,
 } from "recharts";
-import { Button, Input } from "../../components/ui/UIComponents";
+import { Button } from "../../components/ui/UIComponents";
 import { createClient } from "../../lib/supabase/client";
 import { addUserCredits } from "../../lib/supabase-db";
 
@@ -66,9 +61,17 @@ interface ChartDataPoint {
   words: number;
 }
 
+interface StatCardProps {
+  title: string;
+  value: string;
+  subValue: string;
+  icon: LucideIcon;
+  trend: number;
+}
+
 // --- Components ---
 
-const StatCard = ({ title, value, subValue, icon: Icon, trend }: any) => (
+const StatCard = ({ title, value, subValue, icon: Icon, trend }: StatCardProps) => (
   <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-between h-28 sm:h-32">
     <div className="flex justify-between items-start">
       <div className="min-w-0 flex-1">
@@ -117,7 +120,7 @@ export default function AdminDashboard() {
   // User management states
   const [searchTerm, setSearchTerm] = useState("");
   const [users, setUsers] = useState<UserData[]>([]);
-  const [usersLoading, setUsersLoading] = useState(false);
+  const [, setUsersLoading] = useState(false);
 
   // Modal States
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
@@ -145,7 +148,6 @@ export default function AdminDashboard() {
   useEffect(() => {
     loadAdminData();
     loadUserData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Filter chart data locally when timeRange changes or full data arrives
@@ -161,7 +163,6 @@ export default function AdminDashboard() {
     }
   }, [timeRange, fullChartData]);
 
-  /* eslint-disable react-hooks/exhaustive-deps */
   const loadAdminData = async () => {
     try {
       setLoading(true);
@@ -330,7 +331,7 @@ export default function AdminDashboard() {
                               return (
                                 <div className="bg-white p-3 border border-gray-100 shadow-xl rounded-lg text-xs">
                                   <p className="font-bold text-gray-900 mb-2">{label}</p>
-                                  {payload.map((entry: any, index: number) => (
+                                  {payload.map((entry: { color?: string; name?: string; value?: number }, index: number) => (
                                     <div key={index} className="flex items-center gap-2 mb-1 last:mb-0">
                                       <div
                                         className="w-2 h-2 rounded-full"
@@ -437,6 +438,7 @@ export default function AdminDashboard() {
                               <td className="px-6 py-4">
                                 <div className="flex items-center gap-3">
                                   {user.avatarUrl ? (
+                                    /* eslint-disable-next-line @next/next/no-img-element */
                                     <img
                                       src={user.avatarUrl}
                                       alt={user.fullName || user.email}
@@ -522,6 +524,7 @@ export default function AdminDashboard() {
                           <div className="flex items-start justify-between mb-3">
                             <div className="flex items-center gap-3 flex-1 min-w-0">
                               {user.avatarUrl ? (
+                                /* eslint-disable-next-line @next/next/no-img-element */
                                 <img
                                   src={user.avatarUrl}
                                   alt={user.fullName || user.email}

@@ -34,9 +34,18 @@ import {
   RefreshCw,
   ArrowRightLeft,
   X,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  LucideIcon,
 } from "lucide-react";
+import {
+  STYLE_PRESETS,
+  CUSTOM_PRESET_ID,
+  getPresetById,
+} from "../lib/style-presets";
 
-const STEPS: { id: SetupStep; label: string; icon: any }[] = [
+const STEPS: { id: SetupStep; label: string; icon: LucideIcon }[] = [
   { id: "CORE", label: "核心设定", icon: Map },
   { id: "CHARACTERS", label: "角色设定", icon: Users },
   { id: "OUTLINE", label: "故事大纲", icon: BookOpen },
@@ -105,6 +114,9 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onFinish }) => {
   const [renameMap, setRenameMap] = useState<Record<string, string>>({});
   const [isRenaming, setIsRenaming] = useState(false);
 
+  // Style Preset State
+  const [showAdvancedStyle, setShowAdvancedStyle] = useState(false);
+
   // Check if core requirements are met (Title, Theme, Genre)
   const isCoreReady = !!(
     bible.core.title?.trim() &&
@@ -158,7 +170,7 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onFinish }) => {
       } else if (step === "OUTLINE") {
         const rawOutline = await generateFullOutline(bible);
         const formattedOutline: ChapterOutline[] = rawOutline.map(
-          (c: any, i: number) => ({
+          (c: { title: string; summary: string }) => ({
             id: crypto.randomUUID(),
             title: c.title,
             summary: c.summary,
@@ -307,6 +319,32 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onFinish }) => {
     // Call the parent callback to switch view
     if (onFinish) {
       onFinish();
+    }
+  };
+
+  // 处理风格预设选择
+  const handlePresetSelect = (presetId: string) => {
+    if (presetId === CUSTOM_PRESET_ID) {
+      // 切换到自定义模式，保留当前值
+      updateInstruction({ stylePresetId: CUSTOM_PRESET_ID });
+      return;
+    }
+
+    const preset = getPresetById(presetId);
+    if (preset) {
+      // 应用预设的所有值
+      updateInstruction({
+        stylePresetId: presetId,
+        pov: preset.instructions.pov,
+        pacing: preset.instructions.pacing,
+        dialogueStyle: preset.instructions.dialogueStyle,
+        sensoryDetails: preset.instructions.sensoryDetails,
+        keyElements: preset.instructions.keyElements,
+        avoid: preset.instructions.avoid,
+        customPromptModifiers: undefined, // 清除自定义修饰语
+      });
+      // 同时更新 styleTone
+      updateCore({ styleTone: preset.styleTone });
     }
   };
 
@@ -579,7 +617,7 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onFinish }) => {
                             ...prev,
                             characters: prev.characters.map((c) =>
                               c.id === char.id
-                                ? { ...c, role: e.target.value as any }
+                                ? { ...c, role: e.target.value as Character["role"] }
                                 : c
                             ),
                           }))
@@ -771,19 +809,89 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onFinish }) => {
         );
 
       case "INSTRUCTIONS":
+        const currentPresetId = bible.instructions.stylePresetId;
+        const isCustomMode = currentPresetId === CUSTOM_PRESET_ID || !currentPresetId;
+
         return (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
             <ClearStepButton />
-            <AutoGenButton
-              label="一键智能定义写作风格"
-              disabled={!isCoreReady}
-            />
+
+            {/* 风格预设选择器 */}
+            <div className="mb-8">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-secondary mb-4">
+                选择写作风格预设
+              </h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {STYLE_PRESETS.map((preset) => {
+                  const isSelected = currentPresetId === preset.id;
+                  return (
+                    <button
+                      key={preset.id}
+                      onClick={() => handlePresetSelect(preset.id)}
+                      className={`relative p-4 rounded-lg border-2 transition-all text-left hover:shadow-md ${
+                        isSelected
+                          ? "border-primary bg-primary/5 shadow-sm"
+                          : "border-border hover:border-gray-300 bg-white"
+                      }`}
+                    >
+                      {isSelected && (
+                        <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                          <Check className="w-3 h-3 text-white" />
+                        </div>
+                      )}
+                      <div className="text-2xl mb-2">{preset.icon}</div>
+                      <div className="font-medium text-primary text-sm">
+                        {preset.name}
+                      </div>
+                      <div className="text-xs text-secondary mt-1 line-clamp-2">
+                        {preset.description}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* 自定义选项 */}
+              <button
+                onClick={() => handlePresetSelect(CUSTOM_PRESET_ID)}
+                className={`w-full mt-3 p-3 rounded-lg border-2 transition-all text-left ${
+                  isCustomMode
+                    ? "border-primary bg-primary/5"
+                    : "border-dashed border-border hover:border-gray-300"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  {isCustomMode && (
+                    <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                      <Check className="w-3 h-3 text-white" />
+                    </div>
+                  )}
+                  <span className="font-medium text-primary text-sm">
+                    自定义风格
+                  </span>
+                  <span className="text-xs text-secondary">
+                    - 完全自由定义所有参数
+                  </span>
+                </div>
+              </button>
+            </div>
+
+            {/* AI 生成按钮 - 仅在自定义模式下显示 */}
+            {isCustomMode && (
+              <AutoGenButton
+                label="一键智能定义写作风格"
+                disabled={!isCoreReady}
+              />
+            )}
+
+            {/* 详细设置 */}
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Input
                   label="叙事视角 (POV)"
                   value={bible.instructions.pov}
                   onChange={(e) => updateInstruction({ pov: e.target.value })}
+                  placeholder="例如：第三人称有限视角"
                 />
                 <Input
                   label="节奏控制 (Pacing)"
@@ -791,6 +899,7 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onFinish }) => {
                   onChange={(e) =>
                     updateInstruction({ pacing: e.target.value })
                   }
+                  placeholder="例如：快节奏，情节紧凑"
                 />
               </div>
               <TextArea
@@ -799,6 +908,7 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onFinish }) => {
                 onChange={(e) =>
                   updateInstruction({ dialogueStyle: e.target.value })
                 }
+                placeholder="描述对话的语气、风格特点..."
               />
               <TextArea
                 label="感官细节侧重"
@@ -806,13 +916,63 @@ export const SetupWizard: React.FC<SetupWizardProps> = ({ onFinish }) => {
                 onChange={(e) =>
                   updateInstruction({ sensoryDetails: e.target.value })
                 }
+                placeholder="描述重点关注的感官体验..."
+              />
+              <TextArea
+                label="关键意象与元素"
+                value={bible.instructions.keyElements}
+                onChange={(e) =>
+                  updateInstruction({ keyElements: e.target.value })
+                }
+                placeholder="反复出现的意象、符号、主题元素..."
               />
               <TextArea
                 label="禁止事项 (避免的雷区)"
                 value={bible.instructions.avoid}
                 onChange={(e) => updateInstruction({ avoid: e.target.value })}
+                placeholder="明确写作中应避免的内容..."
                 className="border-red-100 focus:border-red-300"
               />
+
+              {/* 高级设置折叠区 */}
+              <div className="border border-border rounded-lg overflow-hidden">
+                <button
+                  onClick={() => setShowAdvancedStyle(!showAdvancedStyle)}
+                  className="w-full p-4 flex items-center justify-between bg-gray-50 hover:bg-gray-100 transition-colors"
+                >
+                  <span className="text-sm font-medium text-secondary">
+                    高级设置：自定义 Prompt 修饰语
+                  </span>
+                  {showAdvancedStyle ? (
+                    <ChevronUp className="w-4 h-4 text-secondary" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-secondary" />
+                  )}
+                </button>
+                {showAdvancedStyle && (
+                  <div className="p-4 border-t border-border">
+                    <p className="text-xs text-secondary mb-3">
+                      这些修饰语将直接注入章节生成的 Prompt
+                      中，用于精细控制 AI 的写作行为。留空则使用预设的默认修饰语。
+                    </p>
+                    <TextArea
+                      label="自定义 Prompt 修饰语"
+                      value={bible.instructions.customPromptModifiers || ""}
+                      onChange={(e) =>
+                        updateInstruction({
+                          customPromptModifiers: e.target.value,
+                        })
+                      }
+                      placeholder={`示例：
+1. 每个场景都要有紧张感
+2. 对话要简短有力
+3. 章节结尾必须留悬念
+...`}
+                      className="min-h-[120px]"
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         );
