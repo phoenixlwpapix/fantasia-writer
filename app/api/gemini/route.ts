@@ -101,7 +101,8 @@ export async function POST(req: Request) {
               "dialogueStyle": "String",
               "sensoryDetails": "String",
               "keyElements": "String",
-              "avoid": "避免过多的肢体动作描写（如频繁的点头、叹气、移动），避免流水账。"
+              "avoid": "避免过多的肢体动作描写（如频繁的点头、叹气、移动），避免流水账。",
+              "stylePresetId": "String (MUST be one of: light-humor, tense-suspense, delicate-lyrical, hardcore-action, poetic-artistic, dark-horror, sweet-romance, epic-grand. Choose the MOST suitable preset based on the story's genre and tone.)"
             }
           }
         `;
@@ -154,6 +155,25 @@ export async function POST(req: Request) {
             keyElements: "",
             avoid: "",
           };
+        }
+
+        // Validate stylePresetId is a valid preset
+        const validPresets = [
+          "light-humor",
+          "tense-suspense",
+          "delicate-lyrical",
+          "hardcore-action",
+          "poetic-artistic",
+          "dark-horror",
+          "sweet-romance",
+          "epic-grand",
+        ];
+        if (
+          !result.instructions.stylePresetId ||
+          !validPresets.includes(result.instructions.stylePresetId)
+        ) {
+          // Default to a reasonable preset based on common genres
+          result.instructions.stylePresetId = "tense-suspense";
         }
 
         return NextResponse.json(result);

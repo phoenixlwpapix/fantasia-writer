@@ -585,14 +585,6 @@ export const WritingInterface: React.FC<WritingInterfaceProps> = ({
             </h2>
           </div>
           <div className="flex gap-2 items-center shrink-0 ml-2">
-            {analyzingId === selectedChapterId && (
-              <div className="flex items-center text-purple-600 bg-purple-50 px-3 py-1 rounded-full border border-purple-100 animate-pulse">
-                <BrainCog className="w-3.5 h-3.5 mr-1.5" />
-                <span className="text-xs font-bold tracking-wide">
-                  记忆存儲中...
-                </span>
-              </div>
-            )}
             <div className="flex flex-col items-end">
               <Button
                 variant="primary"
@@ -761,13 +753,28 @@ export const WritingInterface: React.FC<WritingInterfaceProps> = ({
       <aside className="w-80 bg-white border-l border-border hidden xl:flex flex-col p-0 overflow-hidden shrink-0">
         <div className="p-6 border-b border-border bg-gray-50/50">
           <h3 className="text-xs font-bold uppercase tracking-widest text-secondary flex items-center gap-2">
-            <BrainCog className="w-4 h-4" />
-            AI 记忆库
+            <BrainCog className={`w-4 h-4 ${analyzingId === selectedChapterId ? 'animate-pulse text-purple-500' : ''}`} />
+            {analyzingId === selectedChapterId ? '记忆存储中...' : 'AI 记忆库'}
           </h3>
         </div>
 
         <div className="overflow-y-auto p-6 space-y-8 flex-1">
-          {currentChapter?.metadata ? (
+          {analyzingId === selectedChapterId ? (
+            <div className="flex flex-col items-center justify-center py-16 animate-in fade-in duration-300">
+              <div className="relative">
+                <BrainCog className="w-16 h-16 text-purple-400 animate-pulse" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-20 h-20 border-2 border-purple-200 border-t-purple-500 rounded-full animate-spin" />
+                </div>
+              </div>
+              <p className="text-sm text-purple-600 font-medium mt-6 animate-pulse">
+                AI 正在分析章节内容...
+              </p>
+              <p className="text-xs text-secondary mt-2 text-center px-4">
+                提取关键事件、人物状态和场景信息
+              </p>
+            </div>
+          ) : currentChapter?.metadata ? (
             <>
               <div className="animate-in fade-in slide-in-from-right-4 duration-500">
                 <label className="text-xs font-bold text-primary flex items-center gap-1.5 mb-2 uppercase tracking-wide">
@@ -829,9 +836,7 @@ export const WritingInterface: React.FC<WritingInterfaceProps> = ({
             <div className="text-center py-10 opacity-50">
               <BrainCog className="w-12 h-12 mx-auto mb-3 text-gray-300" />
               <p className="text-sm text-secondary">
-                {analyzingId === selectedChapterId
-                  ? "AI 正在分析本章内容..."
-                  : "生成章节后，AI 将自动提取关键记忆点以保持故事连贯性。"}
+                生成章节后，AI 将自动提取关键记忆点以保持故事连贯性。
               </p>
             </div>
           )}
